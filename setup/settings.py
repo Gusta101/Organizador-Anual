@@ -51,6 +51,8 @@ INSTALLED_APPS = [
     'estudos',
     'hobbies',
     'saude',
+    'autocuidado',
+    'objetivos',
 ]
 
 MIDDLEWARE = [
