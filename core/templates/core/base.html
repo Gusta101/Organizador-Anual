@@ -1,0 +1,44 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <title>Esse vai ser meu ano! - 2026</title>
+</head>
+<body>
+
+    <!-- Nav bar -->
+    <nav class="sidebar">
+    <h2>Planejador 2026</h2>
+    <ul>
+        <li><a href="/">🏠 Início</a></li>
+        <li><a href="#">💰 Financeiro</a></li>
+        <li><a href="#">💼 Trabalho</a></li>
+        <li><a href="#">📚 Estudos</a></li>
+        <li><a href="#">🎨 Hobbies</a></li>
+        <li><a href="#">❤️ Saúde</a></li>
+    </ul>
+    </nav>
+
+    <!-- Conteúdo Principal -->
+    <main class="main-content">
+        <header class="top-bar">
+            <span id="current-screen">{% block title %}Dashboard{% endblock %}</span>
+            <span id="current-date"></span>
+        </header>
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- Scripts -->
+    <script>
+        const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('current-date').innerText = new Date().toLocaleDateString('pt-BR', dateOptions);
+    </script>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
+</body>
+</html>

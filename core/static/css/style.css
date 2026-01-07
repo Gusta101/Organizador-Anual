@@ -1,0 +1,66 @@
+:root {
+    /* Paleta Claro */
+    --color1: #14a6bd;
+    --color2: #338592;
+    --color3: #4296a3;
+    --color4: #7bd0da;
+    --color5: #f4ffff;
+
+    --text-color: #333;
+    --sidebar-width: 250px;
+}
+
+/* Reset básico */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    background-color: var(--color5);
+    color: var(--text-color);
+    font-family: sans-serif;
+    display: flex;
+    height: 100vh;
+}
+
+/* Barra Lateral */
+.sidebar {
+    width: var(--sidebar-width);
+    background-color: var(--color1);
+    color: white;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+}
+
+.sidebar h2 { margin-bottom: 30px; }
+
+.sidebar a {
+    color: white;
+    text-decoration: none;
+    padding: 10px;
+    margin-bottom: 5px;
+    border-radius: 5px;
+    transition: 0.3s;
+}
+
+.sidebar a:hover { background-color: var(--color2); }
+
+/* Conteúdo Principal */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Topo */
+.top-bar {
+    background-color: white;
+    padding: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    display: flex;
+    justify-content: space-between;
+}
+
+.content-area {
+    padding: 20px;
+    overflow-y: auto;
+}
