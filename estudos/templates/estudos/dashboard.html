@@ -1,0 +1,94 @@
+{% extends 'core/base.html' %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <!-- Título e Data -->
+    <div class="row mb-4">
+        <div class="col">
+            <h2 style="color: var(--color1);">Estudos</h2>
+            <p class="text-muted">{{ data_atual|date:"l, d \d\e F \d\e Y" }}</p>
+        </div>
+    </div>
+
+    <!-- Card Principal - Metas de Hoje -->
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Metas de Hoje</h5>
+        </div>
+        <div class="card-body">
+
+            {% if not metas_hoje %}
+            <p class="text-muted">Nenhuma meta programada para hoje.</p>
+            {% endif %}
+
+            <!-- Lista de Metas -->
+            <div class="list-group list-group-flush">
+                {% for meta in metas_hoje %}
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+
+                    <div class="ms-2 me-auto">
+                        <div class="fw-bold">{{ meta.objetivo.titulo }}</div>
+                        <small class="text-muted">{{ meta.objetivo.descricao }}</small>
+                    </div>
+
+                    <div class="d-flex align-items-center" style="min-width: 200px;">
+
+                        {% if meta.objetivo.tipo == 'CHECKLIST' %}
+                        <form action="{% url 'estudos:registrar_progresso' meta.id %}" method="POST">
+                            {% csrf_token %}
+                            <button type="submit"
+                                class="btn btn-outline-{{ meta.realizado|yesno:'success,secondary' }}">
+                                {% if meta.realizado %}
+                                <i class="bi bi-check-circle-fill"></i> Concluído
+                                {% else %}
+                                <i class="bi bi-circle"></i> Pendente
+                                {% endif %}
+                            </button>
+                        </form>
+
+                        {% elif meta.objetivo.tipo == 'PROGRESSO' %}
+                        <div class="w-100">
+                            <div class="progress mb-2" style="height: 20px;">
+                                <div class="progress-bar bg-info" role="progressbar"
+                                    style="width: {{ meta.percentual }}%;" aria-valuenow="{{ meta.valor_atingido }}"
+                                    aria-valuemin="0" aria-valuemax="{{ meta.valor_meta }}">
+                                    {{ meta.percentual }}%
+                                </div>
+                            </div>
+
+                            <form action="{% url 'estudos:registrar_progresso' meta.id %}" method="POST"
+                                class="input-group input-group-sm">
+                                {% csrf_token %}
+                                <span class="input-group-text">{{ meta.valor_atingido }}/{{ meta.valor_meta }} {{
+                                    meta.objetivo.unidade_medida }}</span>
+                                <input type="number" name="valor" class="form-control" placeholder="+Qtd">
+                                <button class="btn btn-outline-primary" type="submit">Add</button>
+                            </form>
+                        </div>
+                        {% endif %}
+
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <h4 class="mt-4">Meus Assuntos</h4>
+    <div class="row">
+        {% for assunto in assuntos %}
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 border-info">
+                <div class="card-body">
+                    <h5 class="card-title">{{ assunto.titulo }}</h5>
+                    <p class="card-text">{{ assunto.descricao|truncatechars:50 }}</p>
+                    <a href="#" class="btn btn-sm btn-info text-white">Ver Detalhes/Arquivos</a>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+{% endblock %}
