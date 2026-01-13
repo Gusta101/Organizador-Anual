@@ -90,5 +90,17 @@
         {% endfor %}
     </div>
 
+    <br>
+    <br>
+    <br>
+    <h1>Testes:</h1>
+    <a href="{% url 'criar_objetivo_modulo' 'ESTUDOS' %}" class="btn btn-primary">
+        + Novo Objetivo de Estudo
+    </a>
+
+    <a href="{% url 'criar_objetivo_modulo' 'FINANCEIRO' %}" class="btn btn-primary">
+        + Nova Meta Financeira
+    </a>
+
 </div>
 {% endblock %}
