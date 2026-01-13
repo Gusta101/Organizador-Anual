@@ -1,5 +1,5 @@
 # Planejador Anual (Idealização do projeto)
-    Futuramente documentação de requisitos formal completa
+> Futuramente documentação de requisitos formal completa
 
 ESSE É O MEU ANO!
 
@@ -10,19 +10,19 @@ Projeto pessoal que visa o desenvolvimento de uma aplicação web, para facilita
 Após baixar o repositório, cria um arquivo na raiz do proeto, chamado _.env_
 Nesse arquivo ficarão suas variáveis de ambiente, e essas informações são secretas. Escreva nesse arquivo as seguintes variáveis:
 
-> DEBUG=True \
-> SECRET_KEY='(exemplo-de-chave-secreta-pessoal-do-usuario)' \
-> ALLOWED_HOSTS=localhost,127.0.0.1
+    DEBUG=True
+    ECRET_KEY='(exemplo-de-chave-secreta-pessoal-do-usuario)'
+    ALLOWED_HOSTS=localhost,127.0.0.1
 
 Agora, em um ambiente que tenha Python 3.12.1+ instalado - **Altamente recomendado o uso de um ambiente virtual python (venv)** -, rode os seguintes comandos de prompt na raiz do projeto:
 
-> pip install -r requirements.txt
+    pip install -r requirements.txt
 
-> python manage.py makemigrations
+    python manage.py makemigrations
 
-> python manage.py migrate
+    python manage.py migrate
 
-> python manage.py runserver
+    python manage.py runserver
 
 Pronto! Agora o projeto está sendo executado no seu computador no modo de desenvolvimento (DEBUG), basta acessar [127.0.0.1:8000](http://127.0.0.1:8000/) no seu navegador para vê-lo funcionando.
 
