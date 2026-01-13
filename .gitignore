@@ -175,3 +175,5 @@ cython_debug/
 
 # Notas pessoais
 notes.txt
+
+migrations/

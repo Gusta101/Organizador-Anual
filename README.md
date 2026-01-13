@@ -5,6 +5,29 @@ ESSE É O MEU ANO!
 
 Projeto pessoal que visa o desenvolvimento de uma aplicação web, para facilitar a organização pessoal ao longo do ano, em diversos âmbitos do desenvolvimento pessoal, como Estudos, Trabalho, Finanças, Hobbies, Saúde, e Autocuidados por exemplo.
 
+## Instalação
+
+Após baixar o repositório, cria um arquivo na raiz do proeto, chamado _.env_
+Nesse arquivo ficarão suas variáveis de ambiente, e essas informações são secretas. Escreva nesse arquivo as seguintes variáveis:
+
+> DEBUG=True \
+> SECRET_KEY='(exemplo-de-chave-secreta-pessoal-do-usuario)' \
+> ALLOWED_HOSTS=localhost,127.0.0.1
+
+Agora, em um ambiente que tenha Python 3.12.1+ instalado - **Altamente recomendado o uso de um ambiente virtual python (venv)** -, rode os seguintes comandos de prompt na raiz do projeto:
+
+> pip install -r requirements.txt
+
+> python manage.py makemigrations
+
+> python manage.py migrate
+
+> python manage.py runserver
+
+Pronto! Agora o projeto está sendo executado no seu computador no modo de desenvolvimento (DEBUG), basta acessar [127.0.0.1:8000](http://127.0.0.1:8000/) no seu navegador para vê-lo funcionando.
+
+# Definição de Requisitos (Informal, para organização pessoal)
+
 ## Geral:
 
 ### O software deve conter um menu lateral para navegar entre as principais telas:
@@ -60,6 +83,8 @@ Projeto pessoal que visa o desenvolvimento de uma aplicação web, para facilita
 - Checklist dos objetivos macro para o dia  
 - Prazos do dia
 
+
+
 ## Estudos
 
 Toda semana o usuário deverá entrar no aplicativo para registrar quais dias da semana ele estudou cada determinado assunto como uma checklist.  
@@ -67,7 +92,7 @@ Deve ser possível criar e deletar os cards (Assuntos estudados), e também adic
 
 ### A tela Estudos deve conter:
 
-* Lista de assuntos que o usuário deseja estudar, dividido em Cards.  
+* Lista de assuntos que o usuário deseja estudar, dividido em Cards. 
   * Cada card deverá conter nele mesmo, ou em um popup/tela individual, os dados do assunto, sejam eles links ou arquivos PDF
 
 * Deverá ter acesso e visualização do calendário principal, mas somente com as informações referentes ao módulo Estudos.
@@ -79,6 +104,8 @@ Deve ser possível criar e deletar os cards (Assuntos estudados), e também adic
 ### Na integração com o calendário teremos em cada dia:
 
 - Checklist de cada assunto meta para o dia
+
+
 
 ## Hobbies
 
