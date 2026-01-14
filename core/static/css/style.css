@@ -67,26 +67,6 @@ body {
 
 .sidebar a:hover { background-color: var(--color3); }
 
-#closeBtn {
-    align-self: flex-end;
-}
-
-#openBtn, #closeBtn {
-    background-color: var(--color4);
-    color: var(--text-color);
-    padding: 10px 15px;
-    border: none;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: bold;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    transition: all 0.2s ease;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
-
 /* Overlay */
 #overlay {
     position: fixed;
@@ -107,6 +87,22 @@ body {
 }
 
 /* Buttons */
+.btn-animated {
+    background-color: var(--color4);
+    color: var(--text-color);
+    padding: 10px 15px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
 .btn-animated:hover {
     background-color: var(--color3);
     transform: scale(0.95);

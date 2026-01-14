@@ -1,6 +1,13 @@
 from django.db import models
 
 class ObjetivoMacro(models.Model):
+    OPCOES_UNIDADE = [
+        ('PAGINAS', 'Páginas'),
+        ('REAIS', 'Reais (R$)'),
+        ('MINUTOS', 'Minutos'),
+        ('HORAS', 'Horas')
+    ]
+    
     # Tipos de visualização e comportamento
     TIPO = [
         ('CHECKLIST', 'Checklist (Sim/Não)'), # Ex: Skin care, Ir ao médico
@@ -36,7 +43,7 @@ class ObjetivoMacro(models.Model):
     
     # Para metas de Progresso (flexibilidade total de unidade)
     meta_valor_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    unidade_medida = models.CharField(max_length=50, blank=True, null=True) # Ex: 'Páginas', 'R$', 'Minutos', 'Litros'
+    unidade_medida = models.CharField(max_length=50, choices=OPCOES_UNIDADE, blank=True, null=True) # Ex: 'Páginas', 'R$', 'Minutos', 'Litros'
 
     data_inicio = models.DateTimeField(auto_now_add=True)
     data_limite = models.DateTimeField(null=True, blank=True)

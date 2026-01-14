@@ -32,3 +32,13 @@ def registrar_progresso(request, meta_id):
             meta.valor_atingido += incremento
         meta.save()    
     return redirect('estudos:estudos')
+
+def detalhes_assunto(request, assunto_id):
+    hoje = timezone.now().date()
+    assunto = get_object_or_404(ObjetivoMacro, id=assunto_id, modulo='ESTUDOS')
+    metas = MetaDiaria.objects.filter(objetivo=assunto, data__year=hoje.year, data__month=hoje.month).order_by('-data')
+    return render(request, 'estudos/detalhes_assunto.html', {
+        'assunto': assunto,
+        'metas': metas
+    })
+    

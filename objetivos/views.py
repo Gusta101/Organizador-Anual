@@ -18,10 +18,8 @@ FORM_MAPPING = {
 }
 
 def criar_objetivo_unificado(request, modulo_origem=None):
-    # Se veio pela URL (ex: /novo/ESTUDOS/), forçamos maiúsculo para bater com o CHOICE
     modulo_inicial = modulo_origem.upper() if modulo_origem else None
     
-    # Dicionário para guardar as instâncias dos forms extras para renderizar no template
     extra_forms = {}
 
     if request.method == 'POST':
@@ -55,16 +53,16 @@ def criar_objetivo_unificado(request, modulo_origem=None):
                     # Se tiver uma rota com o nome do módulo (ex: 'estudos'), vai pra lá.
                     # Senão, vai para o dashboard geral.
                     try:
-                        return redirect(modulo_selecionado.lower()) 
+                        return redirect(modulo_selecionado.lower() + ":home") 
                     except:
-                        return redirect('dashboard_geral')
+                        return redirect('home')
                 else:
                     # Erro no form específico (ex: esqueceu o PDF)
                     pass 
             else:
                 # É um módulo simples sem formulário extra (ex: 'OUTROS')
                 objetivo.save()
-                return redirect('dashboard_geral')
+                return redirect('home')
 
     else:
         # GET Request
