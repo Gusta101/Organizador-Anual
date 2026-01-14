@@ -17,10 +17,18 @@
                 <!-- Descrição -->
                 <p>{{ assunto.descricao }}</p>
             </div>
-            <div class="row">
+            <div class="row h-50">
                 <!-- Links -->
-                <h4 class="h-100">Links</h4>
-                ...
+                <h4>Links</h4>
+                {% if assunto.get_links %}
+                    <ul>
+                    {% for link in assunto.get_links %}
+                        <li><a href="{{ link.url }}" target="_blank">{{ link.nome }}</a></li>
+                    {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-center">Nenhum link disponível.</p>
+                {% endif %}
             </div>
             <div class="row">
                 <!-- Arquivos -->

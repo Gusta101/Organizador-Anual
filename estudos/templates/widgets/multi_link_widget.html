@@ -5,7 +5,7 @@
     <div class="link-rows-container d-flex flex-column gap-2"></div>
 
     <button type="button" class="btn btn-sm btn-outline-primary mt-2 btn-add-row">
-        <i class="bi bi-plus-lg"></i> + Adicionar outro link
+        <i class="bi bi-plus-lg"></i> + Adicionar mais
     </button>
 </div>
 
@@ -53,7 +53,6 @@
                     <input type="url" class="form-control link-url" placeholder="https://..." value="${item.url || ''}">
                 `;
 
-                // Adiciona o botão de lixeira APENAS se houver mais de 1 item na lista
                 if (currentData.length > 1) {
                     html += `
                         <button class="btn btn-outline-danger btn-remove" type="button" title="Remover linha">

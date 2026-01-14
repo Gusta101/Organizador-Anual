@@ -1,3 +1,4 @@
+import json
 from django.db import models
 from django.utils import timezone
 from objetivos.models import ObjetivoMacro
@@ -15,9 +16,23 @@ def gerar_caminho_arquivo(instance, nome_arquivo):
 
 class Assunto(models.Model):
     objetivo = models.ForeignKey(ObjetivoMacro, on_delete=models.CASCADE, related_name='assuntos', default=None, null=True, blank=True)
-    links = models.TextField(blank=True, null=True)
+    links = models.TextField(blank=True, null=True, default="[]")
     pdf = models.FileField(upload_to=gerar_caminho_arquivo, blank=True, null=True)
     criado_em = models.DateTimeField(auto_now_add=True)
+    
+    @property
+    def get_links(self):
+        """
+        Retorna a string JSON convertida para lista Python.
+        Se der erro ou estiver vazio, retorna lista vazia para não quebrar o template.
+        """
+        if not self.links:
+            return []
+        
+        try:
+            return json.loads(self.links)
+        except (json.JSONDecodeError, TypeError):
+            return []
     
     @property
     def titulo(self):

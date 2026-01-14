@@ -3,7 +3,7 @@ from .models import ObjetivoMacro
 from .forms import ObjetivoMacroForm
 
 # Importe os formulários dos outros apps conforme for criando
-from estudos.forms import AssuntoForm 
+from estudos.forms import AssuntoForm
 # from financeiro.forms import MetaFinanceiraForm (Exemplo futuro)
 
 # CONFIGURAÇÃO CENTRAL: Mapeia 'Opção do Choice' -> 'Classe do Form'
