@@ -5,14 +5,21 @@
 {% block content %}
 <div class="container-fluid">
 
-    <!-- Título e Data -->
-    <div class="row mb-4">
-        <div class="col">
-            <h2 style="color: var(--color1);">Estudos</h2>
-            <p class="text-muted">{{ data_atual|date:"l, d \d\e F \d\e Y" }}</p>
+    <h4 class="mt-4">Meus Assuntos</h4>
+    <div class="row">
+        {% for assunto in assuntos %}
+        <div class="col-md-4 mb-3">
+            <div class="card h-100 border-info">
+                <div class="card-body">
+                    <h5 class="card-title">{{ assunto.titulo }}</h5>
+                    <p class="card-text">{{ assunto.descricao|truncatechars:50 }}</p>
+                    <a href="{% url 'estudos:detalhes_assunto' assunto.id %}" class="btn btn-sm btn-info text-white">Ver Detalhes/Arquivos</a>
+                </div>
+            </div>
         </div>
+        {% endfor %}
     </div>
-
+    
     <!-- Card Principal - Metas de Hoje -->
     <div class="card shadow-sm mb-4">
         <div class="card-header bg-light">
@@ -77,27 +84,12 @@
         </div>
     </div>
 
-    <h4 class="mt-4">Meus Assuntos</h4>
-    <div class="row">
-        {% for assunto in assuntos %}
-        <div class="col-md-4 mb-3">
-            <div class="card h-100 border-info">
-                <div class="card-body">
-                    <h5 class="card-title">{{ assunto.titulo }}</h5>
-                    <p class="card-text">{{ assunto.descricao|truncatechars:50 }}</p>
-                    <a href="#" class="btn btn-sm btn-info text-white">Ver Detalhes/Arquivos</a>
-                </div>
-            </div>
-        </div>
-        {% endfor %}
-    </div>
-
     <br>
     <br>
     <br>
     
     <h1>Testes:</h1>
-    <a href="{% url 'criar_objetivo_modulo' 'ESTUDOS' %}" class="btn btn-primary">
+    <a href="{% url 'objetivos:criar_objetivo_modulo' 'estudos' %}" class="btn btn-primary">
         + Novo Objetivo de Estudo
     </a>
 

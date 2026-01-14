@@ -1,11 +1,25 @@
+import json
 from django import forms
 from .models import Assunto
+from .widgets import MultiLinkWidget 
 
 class AssuntoForm(forms.ModelForm):
     class Meta:
         model = Assunto
         fields = ['links', 'pdf']
         widgets = {
-            'links': forms.Textarea(attrs={'rows': 2, 'class': 'form-control m-3', 'placeholder': 'Separe os links por vírgula, como em: link1, link2'}),
-            'pdf': forms.FileInput(attrs={'class': 'form-control m-3', 'accept': 'application/pdf'}),
+            'links': MultiLinkWidget(),
+            'pdf': forms.FileInput(attrs={'class': 'form-control', 'accept': 'application/pdf'}),
         }
+
+    def clean_links(self):
+        data = self.cleaned_data.get('links')
+        if not data:
+            return json.dumps([])
+        try:
+            json_list = json.loads(data)
+            if not isinstance(json_list, list):
+                return json.dumps([])
+            return data
+        except:
+            return json.dumps([])

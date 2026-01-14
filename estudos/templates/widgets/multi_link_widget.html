@@ -1,0 +1,100 @@
+<div class="multi-link-widget-wrapper mb-3" id="wrapper_{{ widget.attrs.id }}">
+
+    <input type="hidden" name="{{ widget.name }}" value="{{ widget.value|default:'[]' }}" id="{{ widget.attrs.id }}">
+
+    <div class="link-rows-container d-flex flex-column gap-2"></div>
+
+    <button type="button" class="btn btn-sm btn-outline-primary mt-2 btn-add-row">
+        <i class="bi bi-plus-lg"></i> + Adicionar outro link
+    </button>
+</div>
+
+<script>
+    (function () {
+        const wrapperId = "wrapper_{{ widget.attrs.id }}";
+        const wrapper = document.getElementById(wrapperId);
+
+        if (!wrapper) return;
+
+        const hiddenInput = wrapper.querySelector(`input[type="hidden"][name="{{ widget.name }}"]`);
+        const container = wrapper.querySelector('.link-rows-container');
+        const btnAdd = wrapper.querySelector('.btn-add-row');
+
+        let currentData = [];
+        try {
+            currentData = JSON.parse(hiddenInput.value || '[]');
+            if (!Array.isArray(currentData)) currentData = [];
+        } catch (e) {
+            currentData = [];
+            console.warn("Erro ao ler dados iniciais dos links, resetando para vazio.");
+        }
+
+        if (currentData.length === 0) {
+            currentData.push({ nome: '', url: '' });
+        }
+
+        function updateHiddenInput() {
+            const dataToSave = currentData.filter(item => item.nome.trim() !== '' || item.url.trim() !== '');
+            hiddenInput.value = JSON.stringify(dataToSave);
+        }
+
+        function render() {
+            container.innerHTML = '';
+
+            currentData.forEach((item, index) => {
+                const row = document.createElement('div');
+                row.className = 'input-group';
+
+                let html = `
+                    <span class="input-group-text bg-light small">Nome</span>
+                    <input type="text" class="form-control link-nome" placeholder="Ex: Google" value="${item.nome || ''}">
+                    
+                    <span class="input-group-text bg-light small">URL</span>
+                    <input type="url" class="form-control link-url" placeholder="https://..." value="${item.url || ''}">
+                `;
+
+                // Adiciona o botão de lixeira APENAS se houver mais de 1 item na lista
+                if (currentData.length > 1) {
+                    html += `
+                        <button class="btn btn-outline-danger btn-remove" type="button" title="Remover linha">
+                            <i class="bi bi-trash"></i> X
+                        </button>
+                    `;
+                }
+
+                row.innerHTML = html;
+                container.appendChild(row);
+
+                const inputNome = row.querySelector('.link-nome');
+                const inputUrl = row.querySelector('.link-url');
+                const btnRemove = row.querySelector('.btn-remove');
+
+                inputNome.addEventListener('input', (e) => {
+                    currentData[index].nome = e.target.value;
+                    updateHiddenInput();
+                });
+
+                inputUrl.addEventListener('input', (e) => {
+                    currentData[index].url = e.target.value;
+                    updateHiddenInput();
+                });
+
+                if (btnRemove) {
+                    btnRemove.addEventListener('click', () => {
+                        currentData.splice(index, 1);
+                        render();
+                        updateHiddenInput();
+                    });
+                }
+            });
+        }
+
+        btnAdd.addEventListener('click', () => {
+            currentData.push({ nome: '', url: '' });
+            render();
+        });
+
+        render();
+        updateHiddenInput();
+    })();
+</script>

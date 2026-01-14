@@ -1,0 +1,78 @@
+<style>
+    .calendar-wrapper {
+        max-width: 400px; /* Limita a largura para parecer um calendário de mesa */
+        background-color: #ffffff; /* Fundo branco ou escuro conforme seu tema */
+        border: 1px solid var(--color3);
+        border-radius: 8px;
+        padding: 15px;
+    }
+
+    .calendar-header {
+        text-align: center;
+        font-weight: bold;
+        margin-bottom: 10px;
+        text-transform: capitalize;
+    }
+
+    .calendar-grid {
+        display: grid;
+        /* A MÁGICA: Exatamente 7 colunas de tamanho igual */
+        grid-template-columns: repeat(7, 1fr); 
+        gap: 5px;
+    }
+
+    /* Cabeçalho dos dias da semana (Dom, Seg...) */
+    .weekday-label {
+        text-align: center;
+        font-size: 0.7rem;
+        color: #666;
+        font-weight: 600;
+        margin-bottom: 5px;
+    }
+
+    .calendar-day {
+        aspect-ratio: 1; /* Quadrado perfeito */
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        color: #333; /* Cor do número */
+        cursor: default;
+        position: relative;
+    }
+    
+    /* Hover effect apenas para dias reais */
+    .calendar-day:not(.is-padding):hover {
+        border: 1px solid #555;
+        z-index: 2;
+    }
+
+    .is-padding {
+        pointer-events: none; /* Não clicável */
+    }
+</style>
+
+<div class="calendar-wrapper">
+    <div class="calendar-header">
+        {{ mes_nome }} {{ ano }}
+    </div>
+
+    <div class="calendar-grid">
+        {% for d in dias_semana %}
+            <div class="weekday-label">{{ d }}</div>
+        {% endfor %}
+
+        {% for item in grid %}
+            <div class="calendar-day {% if item.is_padding %}is-padding{% endif %}" 
+                 style="background-color: {{ item.cor }};"
+                 {% if not item.is_padding %}
+                    title="Dia {{ item.dia }}: {{ item.valor }}%"
+                 {% endif %}>
+                 
+                {{ item.dia }}
+                
+            </div>
+        {% endfor %}
+    </div>
+</div>
