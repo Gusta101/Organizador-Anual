@@ -1,4 +1,5 @@
 import json
+import os
 from django.db import models
 from django.utils import timezone
 from objetivos.models import ObjetivoMacro
@@ -45,6 +46,12 @@ class Assunto(models.Model):
         if self.objetivo:
             return self.objetivo.descricao
         return "Descrição Indefinida"
+
+    @property
+    def pdf_filename(self):
+        if self.pdf:
+            return os.path.basename(self.pdf.name)
+        return "Nenhum PDF anexado"
 
     def __str__(self):
         if self.objetivo:

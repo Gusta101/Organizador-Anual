@@ -21,19 +21,21 @@
                 <!-- Links -->
                 <h4>Links</h4>
                 {% if assunto.get_links %}
-                    <ul>
+                <ul>
                     {% for link in assunto.get_links %}
-                        <li><a href="{{ link.url }}" target="_blank">{{ link.nome }}</a></li>
+                    <li><a href="{{ link.url }}" target="_blank">{{ link.nome }}</a></li>
                     {% endfor %}
-                    </ul>
+                </ul>
                 {% else %}
-                    <p class="text-center">Nenhum link disponível.</p>
+                <p class="text-center">Nenhum link disponível.</p>
                 {% endif %}
             </div>
             <div class="row">
                 <!-- Arquivos -->
                 <h4 class="h-100">Arquivos</h4>
-                ...
+                <a href="{% url 'estudos:visualizar_pdf' assunto_id=assunto.id %}" target="_blank" class="btn btn-primary">
+                    {{ assunto.pdf_filename }}
+                </a>
             </div>
         </div>
 

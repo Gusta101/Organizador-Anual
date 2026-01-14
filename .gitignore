@@ -175,3 +175,9 @@ cython_debug/
 
 # Notas pessoais
 notes.txt
+
+# Ignora todos os arquivos .py dentro de qualquer pasta migrations
+**/migrations/*.py
+
+# EXCEÇÃO: Não ignora o __init__.py (necessário para o Python reconhecer o pacote)
+!**/migrations/__init__.py

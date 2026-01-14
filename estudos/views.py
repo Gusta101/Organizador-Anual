@@ -1,6 +1,9 @@
+import os
+from django.http import FileResponse, Http404
 from django.shortcuts import render, get_object_or_404, redirect
 from django.utils import timezone
 from objetivos.models import ObjetivoMacro, MetaDiaria
+from .models import Assunto
 
 def dashboard_estudos(request):
     hoje = timezone.now().date()
@@ -10,15 +13,24 @@ def dashboard_estudos(request):
         objetivo__modulo='ESTUDOS'
     )
     
-    assuntos = ObjetivoMacro.objects.filter(
-        modulo='ESTUDOS',
-        arquivado=False
+    assuntos = Assunto.objects.filter(
+        objetivo__modulo='ESTUDOS',
+        objetivo__arquivado=False
     )
     
     return render(request, 'estudos/dashboard.html', {
         'metas_hoje': metas_hoje,
         'assuntos': assuntos,
         'data_atual': hoje,
+    })
+
+def detalhes_assunto(request, assunto_id):
+    hoje = timezone.now().date()
+    assunto = get_object_or_404(Assunto, id=assunto_id)
+    metas = MetaDiaria.objects.filter(objetivo=assunto.objetivo, data__year=hoje.year, data__month=hoje.month).order_by('-data')
+    return render(request, 'estudos/detalhes_assunto.html', {
+        'assunto': assunto,
+        'metas': metas
     })
 
 def registrar_progresso(request, meta_id):
@@ -33,12 +45,16 @@ def registrar_progresso(request, meta_id):
         meta.save()    
     return redirect('estudos:estudos')
 
-def detalhes_assunto(request, assunto_id):
-    hoje = timezone.now().date()
-    assunto = get_object_or_404(ObjetivoMacro, id=assunto_id, modulo='ESTUDOS')
-    metas = MetaDiaria.objects.filter(objetivo=assunto, data__year=hoje.year, data__month=hoje.month).order_by('-data')
-    return render(request, 'estudos/detalhes_assunto.html', {
-        'assunto': assunto,
-        'metas': metas
-    })
-    
+def visualizar_pdf(request, assunto_id):
+    assunto = get_object_or_404(Assunto, id=assunto_id)
+    try:
+        caminho_arquivo = assunto.pdf.path
+        nome_arquivo = os.path.basename(caminho_arquivo)
+        
+        arquivo = open(caminho_arquivo, 'rb')
+        response = FileResponse(arquivo, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="{nome_arquivo}"'
+        
+        return response
+    except:
+        raise Http404("Erro ao abrir arquivo")
