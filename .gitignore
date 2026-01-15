@@ -181,3 +181,5 @@ notes.txt
 
 # EXCEÇÃO: Não ignora o __init__.py (necessário para o Python reconhecer o pacote)
 !**/migrations/__init__.py
+
+estudos_pdfs/
