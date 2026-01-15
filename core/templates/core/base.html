@@ -5,8 +5,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet"
         integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Righteous&display=swap" rel="stylesheet">
+
+    <!-- Styles -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <title>Esse vai ser meu ano! - 2026</title>
 </head>
@@ -15,7 +23,7 @@
 
     <!-- Barra Lateral -->
     <nav class="sidebar">
-        <button id="closeBtn" class="btn-animated" style="align-self: flex-end;">X</button>
+        <button id="closeBtn" class="btn-animated bg-color4" style="align-self: flex-end;">X</button>
         <h2>Planejador 2026</h2>
         <ul class="p-0">
             <li><a href="/">🏠 Início</a></li>
@@ -37,8 +45,8 @@
     <main class="main-content">
         <!-- Info Topo -->
         <header class="top-bar text-white shadow d-flex justify-content-between align-items-center p-3 mb-4">
-            <button id="openBtn" class="btn-animated">☰ Abrir Menu</button>
-            <span id="current-screen">{% block title %}Dashboard{% endblock %}</span>
+            <button id="openBtn" class="btn-animated bg-color4">☰ Abrir Menu</button>
+            <h2 id="current-screen">{% block title %}Dashboard{% endblock %}</h2>
             <span id="current-date"></span>
         </header>
         {% block content %}

@@ -1,27 +1,25 @@
 :root {
     /* Paleta Claro */
-    --color1: #14a6bd;
-    --color2: #338592;
-    --color3: #4296a3;
-    --color4: #7bd0da;
-    --color5: #f4ffff;
-
-    /* Paleta Escuro */
-    /* --color1: #160d18 ;
+    --color1: #160d18 ;
     --color2: #23145b ;
     --color3: #09456c ;
     --color4: #026f6e ;
-    --color5: #1ca39e ; */
+    --color5: #1ca39e ;
 
-    --text-color: #333;
+    --text-color: #fff;
     --sidebar-width: 250px;
+}
+
+.container-fluid {
+    width: 80%;
+    align-self: center;
 }
 
 /* Reset básico */
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-    background-color: var(--color5);
+    background-color: white;
     color: var(--text-color);
     font-family: sans-serif;
     display: flex;
@@ -88,13 +86,11 @@ body {
 
 /* Buttons */
 .btn-animated {
-    background-color: var(--color4);
     color: var(--text-color);
     padding: 10px 15px;
     border: none;
     border-radius: 8px;
     font-size: 1rem;
-    font-weight: bold;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
@@ -112,6 +108,24 @@ body {
 .btn-animated:active {
     transform: scale(0.75);
     box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+.btn.bg-color5:hover {
+    background-color: var(--color4) !important;
+    color: white !important;
+    border-color: var(--color4);
+}
+
+.link-button {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.link-button:hover {
+    color: #1e3a8a;
+    text-decoration: underline;
 }
 
 /* Conteúdo Principal */
@@ -134,3 +148,31 @@ body {
     padding: 20px;
     overflow-y: auto;
 }
+
+/* Cores */
+.bg-color1 { background-color: var(--color1); }
+.bg-color2 { background-color: var(--color2); }
+.bg-color3 { background-color: var(--color3); }
+.bg-color4 { background-color: var(--color4); }
+.bg-color5 { background-color: var(--color5); }
+
+/* Fonte */
+body, p, textarea {
+    font-family: 'Patrick Hand', cursive;
+    font-size: 18px;
+    line-height: 1.6;
+    color: #2c3e50;
+}
+
+h1, h2, h3 {
+    font-family: 'Caveat', cursive;
+    font-weight: 700;
+}
+
+.btn, .nav-link {
+    font-family: 'Architects Daughter', cursive;
+    font-size: 16px;
+    font-weight: 400;
+}
+
+.text-color-dark { color: #333; }

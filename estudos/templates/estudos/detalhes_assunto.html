@@ -7,48 +7,55 @@
 {% block content %}
 
 <div class="container-fluid">
-    <h2 class="mt-4">
-        Detalhes do Assunto: {{ assunto.titulo }}
-    </h2>
-    <div class="row">
+    <div class="row justify-content-center">
         <!-- Coluna Esquerda -->
         <div class="col-md-6">
-            <div class="row mt-3 h-25">
-                <!-- Descrição -->
+
+            <!-- Cabeçalho -->
+            <h2 class="mt-4">
+                {{ assunto.titulo }}
+            </h2>
+            <div class="row my-3 h-25">
                 <p>{{ assunto.descricao }}</p>
             </div>
-            <div class="row h-50">
-                <!-- Links -->
-                <h4>Links</h4>
+
+            <!-- Links -->
+            <div class="row border-top border-bottom border-1 border-dark">
+                <h4 class="mt-2">Links</h4>
                 {% if assunto.get_links %}
                 <ul>
                     {% for link in assunto.get_links %}
-                    <li><a href="{{ link.url }}" target="_blank">{{ link.nome }}</a></li>
+                    <a href="{{ link.url }}" target="_blank" class="link-button m-3">➡️{{ link.nome }}</a>
                     {% endfor %}
                 </ul>
                 {% else %}
                 <p class="text-center">Nenhum link disponível.</p>
                 {% endif %}
             </div>
-            <div class="row">
-                <!-- Arquivos -->
-                <h4 class="h-100">Arquivos</h4>
-                <a href="{% url 'estudos:visualizar_pdf' assunto_id=assunto.id %}" target="_blank" class="btn btn-primary">
+
+            <!-- Arquivos -->
+            <div class="row border-bottom border-1 border-dark">
+                <h4 class="mt-2">Arquivos</h4>
+                {% if assunto.pdf %}
+                <a href="{% url 'estudos:visualizar_pdf' assunto_id=assunto.id %}" target="_blank" class="btn btn-animated bg-color2 w-auto m-3">
                     {{ assunto.pdf_filename }}
                 </a>
+                {% else %}
+                <p class="text-center">Nenhum arquivo disponível.</p>
+                {% endif %}
             </div>
         </div>
 
         <!-- Coluna Direita -->
         <div class="col-md-6">
-            <div class="row mt-3 justify-content-center border-start border-1 border-dark p-3">
+            <div class="row mt-3 justify-content-center p-3">
                 <!-- Calendário -->
                 {% render_heatmap metas %}
             </div>
         </div>
     </div>
     <div class="fixed-bottom p-3" style="pointer-events: none;">
-        <a class="btn-animated w-auto" href="{% url 'estudos:home' %}" style="pointer-events: auto;">Voltar</a>
+        <a class="btn-animated  bg-color1 w-auto" href="{% url 'estudos:home' %}" style="pointer-events: auto;">Voltar</a>
     </div>
 </div>
 
