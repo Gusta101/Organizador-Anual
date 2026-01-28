@@ -30,7 +30,6 @@ def render_heatmap(queryset, date_field='data', value_field='percentual'):
     # Ajuste para calendário começar no DOMINGO:
     # Se Python diz 0 (Segunda), precisamos de 1 espaço (Domingo).
     # Se Python diz 6 (Domingo), precisamos de 0 espaços.
-    # Fórmula: (dia_semana + 1) % 7
     dias_offset = (dia_semana_inicio + 1) % 7
 
     dados_map = {getattr(obj, date_field).day: obj for obj in queryset}
@@ -48,10 +47,12 @@ def render_heatmap(queryset, date_field='data', value_field='percentual'):
         if obj:
             valor = getattr(obj, value_field, 0)
             valor = max(0, min(100, valor))
-            alpha = max(0.2, valor / 100)
-            cor = f"rgba(40, 167, 69, {alpha})"
-            if valor == 0: cor = "rgba(40, 167, 69, 0.1)"
             tem_dado = True
+            if valor == 0:
+                cor = "#767676"
+            else:
+                alpha = max(0.2, valor / 100)
+                cor = f"rgba(40, 167, 69, {alpha})"
         else:
             valor = 0
             cor = "#ebedf0" # Cinza claro para dia válido mas sem meta

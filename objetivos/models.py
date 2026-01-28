@@ -1,3 +1,4 @@
+from django.utils import timezone
 from django.db import models
 
 class ObjetivoMacro(models.Model):
@@ -40,12 +41,15 @@ class ObjetivoMacro(models.Model):
     frequencia = models.CharField(max_length=50, choices=FREQUENCIA, default='UNICA')
     # Ex: dias da semana '0,2,4' (seg, qua, sex) para filtrar a criação
     dias_especificos = models.CharField(max_length=50, blank=True, null=True) 
+    ignorar_feriados = models.BooleanField(default=False)
     
     # Para metas de Progresso (flexibilidade total de unidade)
+    meta_valor_elementar = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True) # Quanto eu devia fazer por dia/semana?
     meta_valor_total = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     unidade_medida = models.CharField(max_length=50, choices=OPCOES_UNIDADE, blank=True, null=True) # Ex: 'Páginas', 'R$', 'Minutos', 'Litros'
 
-    data_inicio = models.DateTimeField(auto_now_add=True)
+    data_criacao = models.DateTimeField(auto_now_add=True)
+    data_inicio = models.DateTimeField(blank=True, null=True)
     data_limite = models.DateTimeField(null=True, blank=True)
     arquivado = models.BooleanField(default=False) # Para esconder objetivos antigos sem deletar
 
