@@ -18,7 +18,7 @@ def gera_metas_futuras(objetivo_id):
     if ultima_meta:
         proxima_data = ultima_meta.data + timedelta(days=1)
     else:
-        proxima_data = objetivo.data_criacao.date()
+        proxima_data = objetivo.data_inicio.date()
 
     # Se a próxima data já passou da janela ou da data limite do objetivo, paramos
     if proxima_data > data_final:
@@ -49,13 +49,13 @@ def gera_metas_futuras(objetivo_id):
                 criar_dia = True
         elif objetivo.frequencia == 'SEMANAL':
             # Exemplo: Cria apenas na Sábado (6) se não especificado
-            if proxima_data.weekday() == 6: 
+            if proxima_data.weekday() == objetivo.data_semana_especifica: 
                 criar_dia = True
         elif objetivo.frequencia == 'MENSAL':
-            if proxima_data.day == objetivo.data_inicio.day:
+            if proxima_data.day == objetivo.data_especifica.day:
                 criar_dia = True
         elif objetivo.frequencia == 'UNICA':
-            if proxima_data == objetivo.data_inicio.date():
+            if proxima_data == objetivo.data_especifica.date():
                 criar_dia = True
         
         

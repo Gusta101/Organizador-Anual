@@ -33,18 +33,41 @@
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // ID do campo gerado pelo prefixo 'main' -> id_main-modulo
+    document.addEventListener('DOMContentLoaded', function () {
+        // TOGGLE DINÂMICO DE CAMPOS
+
+        function toggleFields(selectElement) {
+            const groupName = selectElement.getAttribute('data-toggle-group');
+            const selectedValue = selectElement.value;
+
+            const elements = document.querySelectorAll(`[data-group="${groupName}"]`);
+
+            elements.forEach(el => {
+                const allowedValues = el.getAttribute('data-show-on').split('|');
+                const shouldShow = allowedValues.includes(selectedValue);
+
+                const target = el.hasAttribute('data-use-parent') ? el.parentElement : el;
+                target.style.display = shouldShow ? 'block' : 'none';
+            });
+        }
+
+        const dynamicSelects = document.querySelectorAll('[data-toggle-group]');
+
+        dynamicSelects.forEach(select => {
+            select.addEventListener('change', () => toggleFields(select));
+            toggleFields(select);
+        });
+
+        // FORM EXTRAS DINÂMICOS
+
         const selectModulo = document.querySelector('#id_main-modulo'); 
         const formsExtras = document.querySelectorAll('.form-extra');
 
-        function atualizarFormulario() {
-            const moduloSelecionado = selectModulo.value; // Ex: 'ESTUDOS'
+        function atualizarFormExtra() {
+            const moduloSelecionado = selectModulo.value;
 
-            // 1. Esconde tudo primeiro
             formsExtras.forEach(div => div.style.display = 'none');
 
-            // 2. Tenta achar a div correspondente: id="extra-ESTUDOS"
             const divAlvo = document.getElementById('extra-' + moduloSelecionado);
             
             if (divAlvo) {
@@ -52,11 +75,10 @@
             }
         }
 
-        // Monitora mudanças
-        selectModulo.addEventListener('change', atualizarFormulario);
+        selectModulo.addEventListener('change', atualizarFormExtra);
+
         
-        // Executa ao carregar (para pegar o initial value vindo da URL)
-        atualizarFormulario();
+        atualizarFormExtra();
     });
 </script>
 {% endblock %}
