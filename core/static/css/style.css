@@ -1,13 +1,168 @@
+/* =========================================
+   1. VARIÁVEIS (ROOT)
+   ========================================= */
 :root {
-    /* Paleta Claro */
-    --color1: #160d18 ;
-    --color2: #23145b ;
-    --color3: #09456c ;
-    --color4: #026f6e ;
-    --color5: #1ca39e ;
+    /* --- Paleta de Cores Fixas --- */
+    --color1: #160d18; /* Roxo escuro */
+    --color2: #23145b; /* Azul índigo */
+    --color3: #09456c; /* Azul petróleo */
+    --color4: #026f6e; /* Verde água escuro */
+    --color5: #1ca39e; /* Turquesa */
+    
+    /* Variável Auxiliar (Faltava essa!) */
+    --text-color-light: #ffffff;
 
-    --text-color: #fff;
+    /* --- Variáveis Semânticas (Modo Claro/Padrão) --- */
+    /* Fundo */
+    --bg-body: #ffffff;
+    --bg-sidebar: var(--color1);
+    --bg-topbar: var(--color2);
+    --bg-footer: var(--color1); /* Footer escuro no modo claro */
+    
+    /* Texto */
+    --text-main: #2c3e50;         /* Texto cinza escuro no fundo branco */
+    --text-sidebar: #ffffff;      /* Texto branco na sidebar escura */
+    --text-footer: #ffffff;       /* Texto branco no footer */
+    
+    /* Dimensões e Bordas */
     --sidebar-width: 250px;
+    --border-color: #dee2e6;
+}
+
+/* --- TEMA ESCURO / INVERTIDO --- */
+body.dark-mode {
+    /* Fundo */
+    --bg-body: var(--color1);     /* O fundo da página vira Roxo Escuro */
+    --bg-sidebar: #f8f9fa;        /* A sidebar inverte para Claro */
+    --bg-topbar: #000000;         /* Topbar vira Preto */
+    --bg-footer: #000000;         /* CORREÇÃO: Footer vira Preto (não segue a sidebar) */
+
+    /* Texto */
+    --text-main: #ffffff;         /* Texto do corpo vira branco */
+    --text-sidebar: var(--color1);/* Texto da sidebar vira roxo escuro */
+    --text-footer: #ffffff;       /* Texto do footer continua branco */
+    
+    --border-color: #444;
+}
+
+/* =========================================
+   2. RESET & BASE
+   ========================================= */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: var(--bg-body);
+    color: var(--text-main);
+    font-family: 'Patrick Hand', cursive; 
+    font-size: 18px;
+    line-height: 1.6;
+    display: flex;
+    height: 100vh;
+    overflow: hidden; 
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Força fontes cursivas em inputs */
+p, textarea, input, button {
+    font-family: 'Patrick Hand', cursive;
+}
+
+/* =========================================
+   3. TIPOGRAFIA
+   ========================================= */
+h1, h2, h3 {
+    font-family: 'Caveat', cursive;
+    font-weight: 700;
+}
+
+a {
+    text-decoration: none;
+}
+
+.link-button {
+    color: #2563eb; /* Azul padrão de link */
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.link-button:hover {
+    color: #1e3a8a;
+    text-decoration: underline;
+}
+
+/* Inputs para funcionar bem nos dois temas */
+input, textarea, .form-control {
+    background-color: rgba(255, 255, 255, 0.9);
+    color: #333;
+    border: 1px solid #ccc;
+}
+
+/* =========================================
+   4. LAYOUT (ESTRUTURA)
+   ========================================= */
+
+/* --- Barra Lateral (Sidebar) --- */
+.sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: var(--sidebar-width);
+    height: 100%;
+    background-color: var(--bg-sidebar);
+    color: var(--text-sidebar);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    transition: transform 0.3s ease-in-out;
+    transform: translateX(-100%);
+    border-right: 1px solid var(--border-color);
+}
+
+.sidebar.open {
+    transform: translateX(0);
+}
+
+.sidebar h2 {
+    margin-bottom: 30px;
+    color: var(--text-sidebar); /* Garante cor certa no título */
+}
+
+.sidebar ul {
+    list-style: none;
+    padding: 0;
+}
+
+.sidebar li {
+    margin-bottom: 15px;
+}
+
+.sidebar a {
+    color: var(--text-sidebar);
+    display: block;
+    padding: 10px;
+    border-radius: 5px;
+    transition: 0.3s;
+}
+
+.sidebar a:hover {
+    /* No modo Dark (sidebar clara), o hover precisa ser visível */
+    background-color: var(--color5); 
+    color: white; 
+}
+
+/* --- Área Principal --- */
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow-y: auto;
+    overflow-x: hidden; 
 }
 
 .container-fluid {
@@ -15,57 +170,12 @@
     align-self: center;
 }
 
-/* Reset básico */
-* { margin: 0; padding: 0; box-sizing: border-box; }
-
-body {
-    background-color: white;
-    color: var(--text-color);
-    font-family: sans-serif;
-    display: flex;
-    height: 100vh;
-}
-
-/* Barra Lateral */
-.sidebar {
-    position: fixed;
-    left: 0;
-    top: 0;
-    width: var(--sidebar-width);
-    height: 100%;
-    background-color: var(--color1);
-    color: white;
+.content-area {
     padding: 20px;
-    display: flex;
-    flex-direction: column;
-    z-index: 1000; 
-    transition: transform 0.3s ease-in-out;
-    transform: translateX(-100%);
+    flex: 1; 
 }
 
-.sidebar.open {
-  transform: translateX(0);
-}
-
-.sidebar h2 { margin-bottom: 30px; }
-
-.sidebar li {
-    list-style: none;
-    margin-bottom: 15px;
-}
-
-.sidebar a {
-    color: white;
-    text-decoration: none;
-    padding: 10px;
-    margin-bottom: 5px;
-    border-radius: 5px;
-    transition: 0.3s;
-}
-
-.sidebar a:hover { background-color: var(--color3); }
-
-/* Overlay */
+/* --- Overlay --- */
 #overlay {
     position: fixed;
     top: 0;
@@ -84,9 +194,35 @@ body {
     pointer-events: auto;
 }
 
-/* Buttons */
+/* =========================================
+   5. COMPONENTES DE UI
+   ========================================= */
+
+/* --- Top Bar --- */
+.top-bar {
+    background-color: var(--bg-topbar);
+    padding: 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text-color-light); /* Sempre branco no topo */
+}
+
+/* O título e a data no Top Bar devem herdar a cor branca */
+.top-bar h2, .top-bar span {
+    color: inherit;
+}
+
+/* --- Botões --- */
+.btn, .nav-link {
+    font-family: 'Architects Daughter', cursive;
+    font-size: 16px;
+    font-weight: 400;
+}
+
 .btn-animated {
-    color: var(--text-color);
+    color: var(--text-color-light); /* Texto branco */
     padding: 10px 15px;
     border: none;
     border-radius: 8px;
@@ -100,79 +236,49 @@ body {
 }
 
 .btn-animated:hover {
-    background-color: var(--color3);
+    filter: brightness(1.1);
     transform: scale(0.95);
     box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    color: white; /* Força branco no hover */
 }
 
 .btn-animated:active {
     transform: scale(0.75);
-    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 
+/* Override para o botão específico */
 .btn.bg-color5:hover {
     background-color: var(--color4) !important;
     color: white !important;
     border-color: var(--color4);
 }
 
-.link-button {
-    color: #2563eb;
-    text-decoration: none;
-    font-weight: 500;
-    transition: all 0.2s ease;
-}
-
-.link-button:hover {
-    color: #1e3a8a;
-    text-decoration: underline;
-}
-
-/* Conteúdo Principal */
-.main-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-}
-
-/* Cabeçalho */
-.top-bar {
-    background-color: var(--color2);
-    padding: 15px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    display: flex;
-    justify-content: space-between;
-}
-
-.content-area {
+/* --- Footer --- */
+footer {
+    background-color: var(--bg-footer); /* Usa a nova variável corrigida */
+    color: var(--text-footer);
+    text-align: center;
     padding: 20px;
-    overflow-y: auto;
+    width: 100%;
+    border-top: 1px solid rgba(255,255,255,0.1); /* Sutil separação */
 }
 
-/* Cores */
+footer p {
+    color: var(--text-footer);
+    margin: 0;
+}
+
+/* =========================================
+   6. UTILITÁRIOS
+   ========================================= */
 .bg-color1 { background-color: var(--color1); }
 .bg-color2 { background-color: var(--color2); }
 .bg-color3 { background-color: var(--color3); }
 .bg-color4 { background-color: var(--color4); }
 .bg-color5 { background-color: var(--color5); }
 
-/* Fonte */
-body, p, textarea {
-    font-family: 'Patrick Hand', cursive;
-    font-size: 18px;
-    line-height: 1.6;
-    color: #2c3e50;
-}
-
-h1, h2, h3 {
-    font-family: 'Caveat', cursive;
-    font-weight: 700;
-}
-
-.btn, .nav-link {
-    font-family: 'Architects Daughter', cursive;
-    font-size: 16px;
-    font-weight: 400;
-}
-
 .text-color-dark { color: #333; }
+
+/* =========================================
+   TESTES E DEBUG
+   ========================================= */

@@ -44,13 +44,27 @@
     <!-- Conteúdo Principal -->
     <main class="main-content">
         <!-- Info Topo -->
-        <header class="top-bar text-white shadow d-flex justify-content-between align-items-center p-3 mb-4">
-            <button id="openBtn" class="btn-animated bg-color4">☰ Abrir Menu</button>
-            <h2 id="current-screen">{% block title %}Dashboard{% endblock %}</h2>
-            <span id="current-date"></span>
+        <header class="top-bar row shadow d-flex justify-content-between p-3 mb-0">
+            <div class="col-md-4">
+                <button id="openBtn" class="btn-animated bg-color4">☰ Abrir Menu</button>
+            </div>
+            <div class="col-md-4 text-center">
+                <h2 id="current-screen">{% block title %}Dashboard{% endblock %}</h2>
+            </div>
+            <div class="col-md-4 text-end">
+                <button id="themeToggle" class="btn-animated bg-color5" title="Mudar Tema">🌗 Tema</button>
+            </div>
         </header>
-        {% block content %}
-        {% endblock %}
+        <span class="m-3 p-2" id="current-date"></span>
+        <div class="content-area">
+            {% block content %}
+            {% endblock %}
+        </div>
+
+        <!-- Footer -->
+        <footer class="py-3 mt-4 border-top">
+            <p class="mb-0">&copy; 2026 - Desenvolvido por Gustavo Balbino</p>
+        </footer>
     </main>
 
     <!-- Scripts -->
@@ -73,8 +87,40 @@
 
     <script>
         // Script para mostrar a data atual em português do Brasil
-        const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
-        document.getElementById('current-date').innerText = new Date().toLocaleDateString('pt-BR', dateOptions);
+        const now = new Date();
+        const day = String(now.getDate()).padStart(2, '0');
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+
+        document.getElementById('current-date').innerText = day + '/' + month;
+    </script>
+
+    <script>
+        // Script para alternar o tema (dark/light)
+        const themeBtn = document.getElementById('themeToggle');
+        const bodyElement = document.body;
+
+        // 1. Verificar se o usuário já tem uma preferência salva
+        const currentTheme = localStorage.getItem('theme');
+
+        // Se tiver salvo como 'dark', aplica a classe imediatamente
+        if (currentTheme === 'dark') {
+            bodyElement.classList.add('dark-mode');
+        }
+
+        // 2. Função para alternar o tema
+        themeBtn.addEventListener('click', () => {
+            bodyElement.classList.toggle('dark-mode');
+
+            // Verifica se a classe existe após o clique
+            const isDark = bodyElement.classList.contains('dark-mode');
+
+            // Salva a escolha no navegador (Local Storage)
+            if (isDark) {
+                localStorage.setItem('theme', 'dark');
+            } else {
+                localStorage.setItem('theme', 'light');
+            }
+        });
     </script>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"
