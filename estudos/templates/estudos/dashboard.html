@@ -3,10 +3,14 @@
 {% block title %}Estudos{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid position-relative" style="min-height: 65vh; padding-bottom: 80px;">
 
+    <!-- Assuntos Cadastrados -->
     <h4 class="mt-4">Meus Assuntos</h4>
     <div class="row">
+        {% if not assuntos %}
+        <p class="text-muted">Nenhum assunto cadastrado.</p>
+        {% endif %}
         {% for assunto in assuntos %}
         <div class="col-md-4 mb-3">
             <div class="card h-100 shadow-sm" style="background-color: blanchedalmond;">
@@ -20,7 +24,7 @@
         {% endfor %}
     </div>
     
-    <!-- Card Principal - Metas de Hoje -->
+    <!-- Metas de Hoje -->
     <div class="card shadow-sm mb-4">
         <div class="card-header bg-light">
             <h5 class="mb-0">Metas de Hoje</h5>
@@ -84,13 +88,8 @@
         </div>
     </div>
 
-    <br>
-    <br>
-    <br>
-    
-    <h1>Testes:</h1>
-    <a href="{% url 'objetivos:criar_objetivo_modulo' 'estudos' %}" class="btn btn-primary">
-        + Novo Objetivo de Estudo
+    <a class="btn-animated bg-color5 position-absolute end-0 bottom-0 text-white m-4" href="{% url 'objetivos:criar_objetivo_modulo' 'estudos' %}">
+        Criar Objetivo de Estudo
     </a>
 
 </div>
