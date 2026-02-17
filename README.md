@@ -46,27 +46,35 @@ Pronto! Agora o projeto está sendo executado no seu computador no modo de desen
 
 ## Financeiro
 
-### A tela de Financeiro deve conter:
+O módulo financeiro é focado no controle de fluxo de caixa, planejamento orçamentário e acompanhamento de metas de longo prazo.
 
-* Saldo atual
+### 1. Fase de Registro (Gestão de Transações)
+* **Saldo Consolidado:** Visualização do saldo total somando múltiplas carteiras (bancos, dinheiro físico, benefícios).
+* **Entrada e Saída do Mês:** Resumo rápido do fluxo financeiro do período atual.
+* **Categorização Inteligente:** Registro de gastos/receitas com campos para Valor, Data, Descrição, Status (Pago/Pendente) e Forma de Pagamento.
+    * **Tags e Categorias:** Classificação obrigatória (Lazer, Mercado, Fixos) para geração de relatórios.
+* **Gestão de Recorrência e Parcelamentos:** * Checkbox "Mensal" para gerar automaticamente faturas de meses seguintes.
+    * Cálculo automático de compras parceladas e seu impacto no saldo futuro.
+* **Módulo de Cartão de Crédito:** Gestão de faturas onde o gasto compromete o limite de forma imediata, mas o abatimento do saldo ocorre apenas no vencimento.
 
-* Entrada e Saída do Mês atual
+### 2. Fase de Planejamento (Budgets e "E se?")
+* **Limites de Gastos (Budgets):** Definição de tetos mensais por categoria (ex: limite para Combustível/Viagens).
+* **Alertas de Consumo:** Notificação visual ao atingir 80% do limite estipulado para uma categoria.
+* **Recurso "E se?":** Calculadora de imprevistos que reserva um valor extra hipotético e mostra o impacto no saldo final do mês.
 
-* Dashboard Interativo: Gráficos (Pizza ou Barra) mostrando gastos por categoria (Lazer, Mercado, Fixos).
+### 3. Fase de Crescimento (Objetivos e Reservas)
+* **Objetivos Macros (Cofres):** Cards com barras de progresso visual, valor atual, alvo e data limite (ex: "Viagem 2026", "Primeiro Carro").
+* **Reserva de Emergência:** Categoria especial de meta para proteção financeira, separada dos objetivos de consumo.
+* **Distribuição Automática:** Funcionalidade para alocar automaticamente uma porcentagem ou valor fixo da receita para metas específicas na virada do mês.
 
-* Tabela com todos gastos e receitas do mês atual, sendo fácil de se adicionar ou remover itens.  
-  * Campos: Valor, Data, Categoria (Tag), Descrição, Status (Pago/Pendente), Forma de Pagamento.  
-  * Adicionar automaticamente gastos e receitas fixas, como para os objetivos macros.
+### 4. Fase de Análise (Dashboard e Projeções)
+* **Dashboard Interativo:** Gráficos (Pizza ou Barra) detalhando a distribuição de gastos e fluxo de caixa.
+* **Fechamento e Projeção:** Painel que indica, com base no ritmo atual de poupança, em qual mês/ano exato cada objetivo macro será alcançado.
+* **Relatório de Desempenho:** Comparativo visual entre o que foi planejado (Budgets) e o que foi efetivamente gasto.
 
-* Gestão de Recorrência: Checkbox "Mensal" que gera automaticamente a fatura do próximo mês.
-
-* Objetivos Macros: Cards com barras de progresso visual para objetivos, bem como o valor atual, objetivo e restante (ex: "Viagem 2026").
-
-* Recurso "E se?": Uma calculadora simples automática que reservará um valor de gasto extra, mostrando quanto sobraria do saldo atual tendo em vista imprevistos.
-
-### Na integração com calendário teremos em cada dia:
-
-- Checklist de pagamentos manuais para o dia
+### Na integração com o calendário teremos em cada dia:
+* Checklist de pagamentos manuais e vencimentos de faturas do dia.
+* Lembretes de entradas esperadas (salários, rendimentos).
 
 ## Trabalho 
 
