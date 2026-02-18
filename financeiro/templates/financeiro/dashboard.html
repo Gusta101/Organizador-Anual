@@ -1,0 +1,107 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Resumo Financeiro{% endblock %}
+
+{% block content %}
+<div class='container-fluid p-0'>
+    
+    <div class='d-flex justify-content-between align-items-center mb-4'>
+        <h3 class='m-0' style='font-family: "Caveat", cursive;'>Mês Atual</h3>
+        <button type='button' class='btn btn-animated bg-color5' data-bs-toggle='modal' data-bs-target='#modalTransacao'>
+            + Nova Transação
+        </button>
+    </div>
+
+    <div class='row mb-4 g-3'>
+        <div class='col-md-4'>
+            <div class='summary-card p-3 rounded text-center'>
+                <h5 class='text-muted'>Receitas</h5>
+                <p class='valor positivo fs-2'>R$ {{ total_receitas|floatformat:2 }}</p>
+            </div>
+        </div>
+        <div class='col-md-4'>
+            <div class='summary-card p-3 rounded text-center'>
+                <h5 class='text-muted'>Despesas</h5>
+                <p class='valor negativo fs-2'>R$ {{ total_despesas|floatformat:2 }}</p>
+            </div>
+        </div>
+        <div class='col-md-4'>
+            <div class='summary-card p-3 rounded text-center border-primary'>
+                <h5 class='text-muted'>Saldo Atual Geral</h5>
+                <p class='valor {% if saldo < 0 %}negativo{% else %}positivo{% endif %} fs-2'>
+                    R$ {{ saldo|floatformat:2 }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class='transactions-section mt-5'>
+        <h4 class='mb-3' style='font-family: "Caveat", cursive;'>Lançamentos Recentes</h4>
+        <div class='table-responsive'>
+            <table class='table finance-table align-middle'>
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Descrição</th>
+                        <th>Categoria</th>
+                        <th>Conta</th>
+                        <th>Valor</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in transacoes %}
+                    <tr>
+                        <td>{{ item.data_vencimento|date:'d/m/Y' }}</td>
+                        <td>{{ item.descricao }}</td>
+                        <td>{{ item.categoria.nome|default:'Sem categoria' }}</td>
+                        <td>{{ item.conta.nome }}</td>
+                        <td class='{% if item.tipo == "RECEITA" %}positivo{% elif item.tipo == "DESPESA" %}negativo{% endif %}'>
+                            {% if item.tipo == 'RECEITA' %}+{% elif item.tipo == 'DESPESA' %}-{% endif %} 
+                            R$ {{ item.valor|floatformat:2 }}
+                        </td>
+                        <td>
+                            {% if item.efetivada %}
+                                <span class='badge pago'>Efetivada</span>
+                            {% else %}
+                                <span class='badge pendente'>Pendente</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan='6' class='text-center py-4'>
+                            Nenhuma transação cadastrada ainda.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div>
+
+<div class='modal fade' id='modalTransacao' tabindex='-1' aria-labelledby='modalTransacaoLabel' aria-hidden='true'>
+    <div class='modal-dialog modal-dialog-centered'>
+        <div class='modal-content custom-modal-content'>
+            <div class='modal-header border-bottom-0'>
+                <h5 class='modal-title' id='modalTransacaoLabel' style='font-family: "Caveat", cursive;'>
+                    Registrar Movimentação
+                </h5>
+                <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+            </div>
+            <div class='modal-body'>
+                <form method='POST' action=''>
+                    {% csrf_token %}
+                    {{ form.as_p }}
+                    
+                    <div class='text-end mt-4'>
+                        <button type='submit' class='btn btn-animated bg-color5'>Salvar Transação</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

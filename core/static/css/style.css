@@ -269,6 +269,87 @@ footer p {
 }
 
 /* =========================================
+   MÓDULO FINANCEIRO (Adaptado p/ Bootstrap)
+   ========================================= */
+
+/* --- Cards --- */
+.summary-card {
+    border: 2px solid var(--border-color);
+    background-color: transparent; /* Herda a cor do body no claro e escuro */
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.summary-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--color5);
+}
+
+.valor {
+    font-family: 'Patrick Hand', cursive;
+    font-weight: bold;
+    margin: 0;
+}
+
+.positivo { color: #2ecc71 !important; }
+.negativo { color: #e74c3c !important; }
+
+/* --- Tabela --- */
+.finance-table {
+    color: var(--text-main) !important;
+    border-color: var(--border-color) !important;
+}
+
+.finance-table th {
+    font-family: 'Caveat', cursive;
+    font-size: 1.4rem;
+    color: var(--color3);
+    border-bottom: 2px solid var(--border-color) !important;
+    background-color: transparent !important;
+}
+
+.finance-table td {
+    color: var(--text-main) !important;
+    background-color: transparent !important; /* Remove o fundo branco padrão do Bootstrap */
+    border-color: var(--border-color);
+}
+
+/* --- Badges --- */
+.badge {
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-family: 'Patrick Hand', cursive;
+    font-weight: 500;
+}
+
+.badge.pago { background-color: rgba(46, 204, 113, 0.15); color: #27ae60; }
+.badge.pendente { background-color: rgba(241, 196, 15, 0.15); color: #d35400; }
+
+body.dark-mode .badge.pago { color: #2ecc71; }
+body.dark-mode .badge.pendente { color: #f1c40f; }
+
+/* --- Ajustes do Modal Bootstrap para o Dark Mode --- */
+.custom-modal-content {
+    background-color: var(--bg-body);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+}
+
+/* Inverte a cor do 'X' de fechar o modal no tema escuro */
+body.dark-mode .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* Ajuste nos inputs do formulário gerado pelo Django */
+.modal-body p {
+    margin-bottom: 1rem;
+}
+.modal-body label {
+    font-weight: bold;
+    margin-bottom: 0.3rem;
+}
+
+/* =========================================
    6. UTILITÁRIOS
    ========================================= */
 .bg-color1 { background-color: var(--color1); }

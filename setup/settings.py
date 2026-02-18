@@ -46,7 +46,7 @@ INSTALLED_APPS = [
     'rest_framework',
     
     'core',
-    'financeiro',
+    'financeiro.apps.FinanceiroConfig',
     'trabalho',
     'estudos',
     'hobbies',
