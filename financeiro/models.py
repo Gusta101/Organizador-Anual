@@ -141,3 +141,21 @@ class TransacaoCartao(models.Model):
     
     def __str__(self):
         return f'{self.descricao} - R$ {self.valor}'
+
+class RegraAporteAutomatico(models.Model):
+    '''
+    Fase 3: Distribuição Automática
+    Gera aportes em cofres no primeiro dia do mês via Cron Job.
+    '''
+    objetivo = models.ForeignKey(ObjetivoMacro, on_delete=models.CASCADE, related_name='regras_aporte')
+    conta_origem = models.ForeignKey(Conta, on_delete=models.CASCADE)
+    valor_fixo = models.DecimalField(max_digits=10, decimal_places=2, help_text='Valor a ser transferido mensalmente')
+    
+    ativa = models.BooleanField(default=True)
+    
+    # Campo crucial para evitar duplicidade! Formato esperado: '02-2026'
+    ultimo_mes_processado = models.CharField(max_length=7, blank=True, null=True)
+
+    def __str__(self):
+        return f'Regra Mensal: R$ {self.valor_fixo} para {self.objetivo.titulo}'
+    

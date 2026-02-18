@@ -1,0 +1,262 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Planeamento e Orçamentos{% endblock %}
+
+{% block content %}
+<div class='container-fluid p-0'>
+
+    <div class='mb-3'>
+        <a href='{% url "financeiro:home" %}' class='btn btn-sm btn-outline-secondary' style='font-family: "Patrick Hand", cursive;'>
+            ⬅ Voltar ao Dashboard Financeiro
+        </a>
+    </div>
+
+    <div class='d-flex justify-content-between align-items-center mb-4'>
+        <div>
+            <h3 class='m-0' style='font-family: "Caveat", cursive;'>Limites de Gastos</h3>
+            <p class='text-muted mb-0'>Mês: {{ mes_atual }}/{{ ano_atual }}</p>
+        </div>
+        <div class='d-flex gap-2'>
+            <button type='button' class='btn btn-animated bg-color4' data-bs-toggle='modal' data-bs-target='#modalESe'>
+                🤔 Simulador "E se?"
+            </button>
+            <button type='button' class='btn btn-animated bg-color5' data-bs-toggle='modal'
+                data-bs-target='#modalNovoOrcamento'>
+                + Definir Limite
+            </button>
+        </div>
+    </div>
+
+    <div class='row g-4'>
+        {% for item in dados_orcamento %}
+        <div class='col-md-6 col-lg-4'>
+            <div class='summary-card p-4 rounded {% if item.alerta %}border-danger{% endif %}'>
+
+                <div class='d-flex justify-content-between align-items-center mb-2'>
+                    <h5 class='m-0' style='color: var(--color3);'>
+                        {{ item.orcamento.categoria.nome }}
+                    </h5>
+                    {% if item.alerta and item.percentual_real < 100 %} <span class='badge bg-warning text-dark'>
+                        Atenção! > 80%</span>
+                        {% elif item.percentual_real >= 100 %}
+                        <span class='badge bg-danger text-white'>Limite Excedido</span>
+                        {% endif %}
+                </div>
+
+                <div class='d-flex justify-content-between mb-2'>
+                    <small class='text-muted'>Gasto: R$ {{ item.gasto|floatformat:2 }}</small>
+                    <small class='text-muted'>Teto: R$ {{ item.orcamento.valor_limite|floatformat:2 }}</small>
+                </div>
+
+                <div class='progress mb-3' style='height: 20px; background-color: var(--border-color);'>
+                    <div class='progress-bar {{ item.cor_barra }} progress-bar-striped' role='progressbar'
+                        style='width: {{ item.percentual_barra }}%;' aria-valuenow='{{ item.percentual_barra }}'
+                        aria-valuemin='0' aria-valuemax='100'>
+                        <span class='fw-bold text-dark px-2'>{{ item.percentual_real|floatformat:0 }}%</span>
+                    </div>
+                </div>
+
+                <div class='text-center mt-2'>
+                    {% if item.restante > 0 %}
+                    <strong class='text-success'>Restam R$ {{ item.restante|floatformat:2 }}</strong>
+                    {% else %}
+                    <strong class='text-danger'>Passou R$ {{ item.restante|floatformat:2|slice:"1:" }}</strong>
+                    {% endif %}
+                </div>
+
+            </div>
+        </div>
+        {% empty %}
+        <div class='col-12'>
+            <div class='alert alert-info text-center' role='alert'
+                style='background-color: var(--bg-body); color: var(--text-main); border-color: var(--border-color);'>
+                Ainda não definiu nenhum teto de gastos para este mês. Clique em "+ Definir Limite" para começar.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+
+<div class='modal fade' id='modalNovoOrcamento' tabindex='-1' aria-hidden='true'>
+    <div class='modal-dialog modal-dialog-centered'>
+        <div class='modal-content custom-modal-content'>
+            <div class='modal-header border-bottom-0'>
+                <h5 class='modal-title' style='font-family: "Caveat", cursive;'>Novo Teto de Gastos</h5>
+                <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+            </div>
+            <div class='modal-body'>
+                <form method='POST' action='{% url "financeiro:novo_orcamento" %}'>
+                    {% csrf_token %}
+
+                    <div class='mb-3'>
+                        <label for='categoria' class='form-label'>Categoria da Despesa</label>
+                        <select class='form-control' id='categoria' name='categoria' required>
+                            <option value=''>Escolha uma categoria...</option>
+                            {% for cat in categorias %}
+                            <option value='{{ cat.id }}'>{{ cat.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class='mb-4'>
+                        <label for='valor_limite' class='form-label'>Valor Máximo Mensal (R$)</label>
+                        <input type='number' class='form-control' id='valor_limite' name='valor_limite' step='0.01'
+                            required placeholder='Ex: 500.00'>
+                        <small class='text-muted'>Se já existir um limite para esta categoria este mês, ele será
+                            atualizado.</small>
+                    </div>
+
+                    <div class='text-end'>
+                        <button type='submit' class='btn btn-animated bg-color5'>Guardar Limite</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class='modal fade' id='modalESe' tabindex='-1' aria-hidden='true'>
+    <div class='modal-dialog modal-dialog-centered'>
+        <div class='modal-content custom-modal-content'>
+            <div class='modal-header border-bottom-0'>
+                <h5 class='modal-title' style='font-family: "Caveat", cursive; color: var(--color5);'>
+                    Calculadora de Imprevistos "E se?"
+                </h5>
+                <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+            </div>
+            <div class='modal-body'>
+                <p class='text-muted small mb-4'>Simule um gasto hipotético e veja o impacto imediato nas suas contas ou limites, sem gravar nada.</p>
+                
+                <div class='mb-3'>
+                    <label for='simulador_valor' class='form-label fw-bold'>Qual o valor do imprevisto/compra?</label>
+                    <input type='number' class='form-control form-control-lg' id='simulador_valor' step='0.01' placeholder='R$ 0.00'>
+                </div>
+
+                <div class='mb-4'>
+                    <label for='simulador_alvo' class='form-label fw-bold'>Onde este valor vai impactar?</label>
+                    <select class='form-control' id='simulador_alvo'>
+                        <option value=''>Selecione para simular...</option>
+                        
+                        <option value='saldo' data-atual='{{ saldo_geral|stringformat:"f" }}'>
+                            💰 Saldo Geral (Atualmente: R$ {{ saldo_geral|floatformat:2 }})
+                        </option>
+                        
+                        <optgroup label='Orçamentos Mensais'>
+                            {% for item in dados_orcamento %}
+                                <option value='orcamento_{{ item.orcamento.id }}' 
+                                        data-atual='{{ item.gasto|stringformat:"f" }}' 
+                                        data-limite='{{ item.orcamento.valor_limite|stringformat:"f" }}'
+                                        data-nome='{{ item.orcamento.categoria.nome }}'>
+                                    📊 {{ item.orcamento.categoria.nome }} (Teto: R$ {{ item.orcamento.valor_limite|floatformat:2 }})
+                                </option>
+                            {% endfor %}
+                        </optgroup>
+                    </select>
+                </div>
+
+                <div id='simulador_resultado' class='p-3 rounded d-none' style='background-color: var(--bg-body); border: 2px dashed var(--border-color);'>
+                    <h6 class='fw-bold text-center mb-3' id='simulador_titulo_resultado'>Impacto Projetado</h6>
+                    
+                    <div class='d-flex justify-content-between mb-2'>
+                        <span class='text-muted'>Situação Atual:</span>
+                        <span id='simulador_texto_atual' class='fw-bold'>R$ 0.00</span>
+                    </div>
+                    
+                    <div class='d-flex justify-content-between mb-3 pb-2 border-bottom'>
+                        <span class='text-muted'>Após a Simulação:</span>
+                        <span id='simulador_texto_futuro' class='fw-bold fs-5'>R$ 0.00</span>
+                    </div>
+
+                    <div id='simulador_box_barra' class='d-none'>
+                        <small class='text-muted'>Novo consumo do teto:</small>
+                        <div class='progress mt-1' style='height: 15px; background-color: var(--border-color);'>
+                            <div id='simulador_barra' class='progress-bar progress-bar-striped progress-bar-animated' role='progressbar' style='width: 0%;'></div>
+                        </div>
+                        <div class='text-center mt-2'>
+                            <small id='simulador_alerta' class='fw-bold'></small>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const inputValor = document.getElementById('simulador_valor');
+        const selectAlvo = document.getElementById('simulador_alvo');
+        const divResultado = document.getElementById('simulador_resultado');
+        
+        const textoAtual = document.getElementById('simulador_texto_atual');
+        const textoFuturo = document.getElementById('simulador_texto_futuro');
+        const boxBarra = document.getElementById('simulador_box_barra');
+        const barra = document.getElementById('simulador_barra');
+        const alerta = document.getElementById('simulador_alerta');
+
+        function calcularSimulacao() {
+            const valorSimulado = parseFloat(inputValor.value) || 0;
+            const alvoSelecionado = selectAlvo.options[selectAlvo.selectedIndex];
+            
+            if (valorSimulado <= 0 || selectAlvo.value === '') {
+                divResultado.classList.add('d-none');
+                return;
+            }
+
+            // Mostra a caixa de resultados
+            divResultado.classList.remove('d-none');
+            
+            const valorAtual = parseFloat(alvoSelecionado.getAttribute('data-atual').replace(',', '.'));
+
+            if (selectAlvo.value === 'saldo') {
+                // Simulação de Saldo Geral (Saldo - Despesa)
+                const saldoFuturo = valorAtual - valorSimulado;
+                
+                textoAtual.textContent = 'R$ ' + valorAtual.toFixed(2);
+                textoFuturo.textContent = 'R$ ' + saldoFuturo.toFixed(2);
+                textoFuturo.className = saldoFuturo < 0 ? 'fw-bold fs-5 text-danger' : 'fw-bold fs-5 text-success';
+                
+                boxBarra.classList.add('d-none'); // Esconde a barra pois não é orçamento
+
+            } else {
+                // Simulação de Orçamento (Gasto Atual + Despesa Simulada)
+                const valorLimite = parseFloat(alvoSelecionado.getAttribute('data-limite').replace(',', '.'));
+                const gastoFuturo = valorAtual + valorSimulado;
+                const percentualFuturo = (gastoFuturo / valorLimite) * 100;
+                
+                textoAtual.textContent = 'Gasto: R$ ' + valorAtual.toFixed(2);
+                textoFuturo.textContent = 'Novo Gasto: R$ ' + gastoFuturo.toFixed(2);
+                textoFuturo.className = gastoFuturo > valorLimite ? 'fw-bold fs-5 text-danger' : 'fw-bold fs-5 text-warning';
+                
+                // Atualiza a barra
+                boxBarra.classList.remove('d-none');
+                barra.style.width = Math.min(percentualFuturo, 100) + '%';
+                barra.textContent = percentualFuturo.toFixed(0) + '%';
+
+                // Lógica de cores da barra simulada
+                barra.className = 'progress-bar progress-bar-striped progress-bar-animated ';
+                if (percentualFuturo >= 100) {
+                    barra.className += 'bg-danger';
+                    alerta.textContent = 'Estourou o limite em R$ ' + (gastoFuturo - valorLimite).toFixed(2) + '!';
+                    alerta.className = 'fw-bold text-danger';
+                } else if (percentualFuturo >= 80) {
+                    barra.className += 'bg-warning text-dark';
+                    alerta.textContent = 'Atenção! Vai comprometer mais de 80% do teto.';
+                    alerta.className = 'fw-bold text-warning';
+                } else {
+                    barra.className += 'bg-success';
+                    alerta.textContent = 'Ainda sobram R$ ' + (valorLimite - gastoFuturo).toFixed(2) + ' tranquilos.';
+                    alerta.className = 'fw-bold text-success';
+                }
+            }
+        }
+
+        // Refazer o cálculo sempre que digitar um número ou mudar o dropdown
+        inputValor.addEventListener('input', calcularSimulacao);
+        selectAlvo.addEventListener('change', calcularSimulacao);
+    });
+</script>
+
+{% endblock %}

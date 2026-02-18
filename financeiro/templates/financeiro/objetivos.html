@@ -1,0 +1,237 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Cofres e Reservas{% endblock %}
+
+{% block content %}
+<div class='container-fluid p-0'>
+
+    <div class='mb-3'>
+        <a href='{% url "financeiro:home" %}' class='btn btn-sm btn-outline-secondary' style='font-family: "Patrick Hand", cursive;'>
+            ⬅ Voltar ao Dashboard Financeiro
+        </a>
+    </div>
+
+    <div class='d-flex justify-content-between align-items-center mb-4'>
+        <div>
+            <h3 class='m-0' style='font-family: "Caveat", cursive;'>As Minhas Conquistas</h3>
+            <p class='text-muted mb-0'>Acompanhe a evolução das suas metas financeiras.</p>
+        </div>
+        <a href='{% url "objetivos:criar_objetivo_modulo" modulo_origem="FINANCEIRO" %}' class='btn btn-animated bg-color4 text-white'>
+            + Novo Cofre
+        </a>
+    </div>
+
+    <div class='row g-4'>
+        {% for item in dados_objetivos %}
+        <div class='col-md-6 col-lg-4'>
+            <div class='summary-card p-4 rounded {% if item.concluido %}border-success{% endif %} position-relative'>
+
+                {% if item.concluido %}
+                <span class='position-absolute top-0 start-100 translate-middle badge rounded-pill bg-success p-2'>
+                    🎉 Atingido!
+                </span>
+                {% endif %}
+
+                <h4 style='font-family: "Caveat", cursive; color: var(--color3);' class='mb-1'>
+                    {{ item.objetivo.titulo }}
+                </h4>
+                <p class='text-muted small mb-3'>
+                    Meta para: {{ item.objetivo.data_limite|date:'M / Y'|default:'Sem prazo definido' }}
+                </p>
+
+                <div class='progress mb-2'
+                    style='height: 25px; background-color: var(--border-color); border-radius: 15px;'>
+                    <div class='progress-bar progress-bar-striped bg-color5 {% if item.concluido %}bg-success{% endif %}'
+                        role='progressbar' style='width: {{ item.percentual }}%;' aria-valuenow='{{ item.percentual }}'
+                        aria-valuemin='0' aria-valuemax='100'>
+                        <span class='fw-bold text-white px-2'>{{ item.percentual|floatformat:1 }}%</span>
+                    </div>
+                </div>
+
+                <div class='d-flex justify-content-between mb-4'>
+                    <span class='fw-bold text-color-dark'>R$ {{ item.guardado|floatformat:2 }}</span>
+                    <span class='text-muted'>Alvo: R$ {{ item.objetivo.meta_valor_total|default:"0.00"|floatformat:2 }}</span>
+                </div>
+
+                <button type='button' class='btn btn-animated bg-color5 w-100 btn-fazer-aporte' data-bs-toggle='modal'
+                    data-bs-target='#modalAporte' data-objetivo-id='{{ item.objetivo.id }}'
+                    data-objetivo-nome='{{ item.objetivo.titulo }}'>
+                    + Guardar Dinheiro
+                </button>
+
+            </div>
+        </div>
+        {% empty %}
+        <div class='col-12'>
+            <div class='alert text-center p-5'
+                style='background-color: var(--bg-body); border: 2px dashed var(--border-color); color: var(--text-main);'>
+                <h4 style='font-family: "Caveat", cursive;'>Nenhum cofre financeiro criado ainda.</h4>
+                <p>Que tal estruturar a sua Reserva de Emergência ou separar um fundo para cobrir despesas de viagens
+                    futuras?</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <div class='mt-5 pt-4 border-top'>
+        <div class='d-flex justify-content-between align-items-center mb-4'>
+            <div>
+                <h4 class='m-0' style='font-family: "Caveat", cursive;'>Piloto Automático (Mensal)</h4>
+                <p class='text-muted small mb-0'>Transferências agendadas para o dia 1 de cada mês.</p>
+            </div>
+            <button type='button' class='btn btn-animated bg-color4' data-bs-toggle='modal'
+                data-bs-target='#modalNovaRegra'>
+                + Nova Automação
+            </button>
+        </div>
+
+        <div class='table-responsive'>
+            <table class='table finance-table align-middle'>
+                <thead>
+                    <tr>
+                        <th>Objetivo (Cofre)</th>
+                        <th>Conta de Origem</th>
+                        <th>Valor Mensal</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for regra in regras_ativas %}
+                    <tr>
+                        <td class='fw-bold' style='color: var(--color3);'>{{ regra.objetivo.titulo }}</td>
+                        <td>{{ regra.conta_origem.nome }}</td>
+                        <td class='positivo fw-bold'>R$ {{ regra.valor_fixo|floatformat:2 }}</td>
+                        <td>
+                            <span class='badge bg-success text-white'>Ativo</span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan='4' class='text-center py-4 text-muted'>
+                            Nenhuma automação configurada. Que tal criar uma regra para investir no seu carro
+                            automaticamente todo o mês?
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class='modal fade' id='modalNovaRegra' tabindex='-1' aria-hidden='true'>
+    <div class='modal-dialog modal-dialog-centered'>
+        <div class='modal-content custom-modal-content'>
+            <div class='modal-header border-bottom-0'>
+                <h5 class='modal-title' style='font-family: "Caveat", cursive; color: var(--color5);'>
+                    Criar Automação Mensal
+                </h5>
+                <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+            </div>
+            <div class='modal-body'>
+                <form method='POST' action='{% url "financeiro:nova_regra_aporte" %}'>
+                    {% csrf_token %}
+
+                    <div class='mb-3'>
+                        <label for='objetivo' class='form-label'>Para qual cofre vai o dinheiro?</label>
+                        <select class='form-control' id='objetivo' name='objetivo' required>
+                            <option value=''>Selecione um objetivo...</option>
+                            {% for obj in objetivos_lista %}
+                            <option value='{{ obj.id }}'>{{ obj.titulo }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class='mb-3'>
+                        <label for='conta_origem_regra' class='form-label'>De onde o dinheiro vai sair?</label>
+                        <select class='form-control' id='conta_origem_regra' name='conta_origem' required>
+                            <option value=''>Selecione a conta...</option>
+                            {% for conta in contas_ativas %}
+                            <option value='{{ conta.id }}'>{{ conta.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class='mb-4'>
+                        <label for='valor_fixo' class='form-label'>Qual o valor mensal?</label>
+                        <input type='number' class='form-control form-control-lg' id='valor_fixo' name='valor_fixo'
+                            step='0.01' required placeholder='R$ 0.00'>
+                        <small class='text-muted'>Este valor será debitado automaticamente no primeiro dia do
+                            mês.</small>
+                    </div>
+
+                    <div class='text-end'>
+                        <button type='submit' class='btn btn-animated bg-color5'>Salvar Automação</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class='modal fade' id='modalAporte' tabindex='-1' aria-hidden='true'>
+    <div class='modal-dialog modal-dialog-centered'>
+        <div class='modal-content custom-modal-content'>
+            <div class='modal-header border-bottom-0'>
+                <h5 class='modal-title' style='font-family: "Caveat", cursive;'>
+                    Novo Aporte: <span id='modalNomeCofre'></span>
+                </h5>
+                <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+            </div>
+            <div class='modal-body'>
+                <form method='POST' action='{% url "financeiro:novo_aporte" %}'>
+                    {% csrf_token %}
+
+                    <input type='hidden' id='objetivo_id' name='objetivo_id'>
+
+                    <div class='mb-3'>
+                        <label for='valor_aporte' class='form-label'>Quanto quer guardar hoje?</label>
+                        <input type='number' class='form-control form-control-lg' id='valor_aporte' name='valor_aporte'
+                            step='0.01' required placeholder='R$ 0.00'>
+                    </div>
+
+                    <div class='mb-3'>
+                        <label for='conta_origem' class='form-label'>De qual conta o dinheiro vai sair?</label>
+                        <select class='form-control' id='conta_origem' name='conta_origem' required>
+                            <option value=''>Selecione uma conta...</option>
+                            {% for conta in contas_ativas %}
+                            <option value='{{ conta.id }}'>{{ conta.nome }} (Disponível: R$ {{
+                                conta.saldo_atual|floatformat:2 }})</option>
+                            {% endfor %}
+                        </select>
+                        <small class='text-muted'>Este valor será subtraído do seu Saldo Geral e trancado neste
+                            cofre.</small>
+                    </div>
+
+                    <div class='mb-4'>
+                        <label for='data_aporte' class='form-label'>Data</label>
+                        <input type='date' class='form-control' id='data_aporte' name='data_aporte' required>
+                    </div>
+
+                    <div class='text-end'>
+                        <button type='submit' class='btn btn-animated bg-color5'>Confirmar Aporte</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const botoesAporte = document.querySelectorAll('.btn-fazer-aporte');
+        const inputObjetivoId = document.getElementById('objetivo_id');
+        const labelNomeCofre = document.getElementById('modalNomeCofre');
+        const inputDataAporte = document.getElementById('data_aporte');
+
+        inputDataAporte.valueAsDate = new Date();
+
+        botoesAporte.forEach(botao => {
+            botao.addEventListener('click', function () {
+                inputObjetivoId.value = this.getAttribute('data-objetivo-id');
+                labelNomeCofre.textContent = this.getAttribute('data-objetivo-nome');
+            });
+        });
+    });
+</script>
+{% endblock %}
