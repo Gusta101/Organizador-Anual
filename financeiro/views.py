@@ -5,7 +5,7 @@ from django.utils import timezone
 
 from objetivos.models import ObjetivoMacro
 from .models import OrcamentoMensal, RegraAporteAutomatico, Transacao, Conta, FaturaCartao, CategoriaFinanceira, TransacaoCartao
-from .forms import TransacaoForm
+from .forms import CategoriaForm, ContaForm, TransacaoForm
 
 import json
 
@@ -15,7 +15,7 @@ def dashboard_financeiro(request):
         form = TransacaoForm(request.POST)
         if form.is_valid():
             form.save()
-            return redirect('financeiro:index')
+            return redirect('financeiro:home')
     else:
         form = TransacaoForm()
 
@@ -106,13 +106,19 @@ def dashboard_financeiro(request):
             efetivada=True
         ).aggregate(total=Sum('valor'))['total'] or 0
         despesas_data.append(float(desp))
+    
+    conta_form = ContaForm()
+    categoria_form = CategoriaForm()
 
     context = {
         'total_receitas': total_receitas,
         'total_despesas': total_despesas,
         'saldo': saldo_geral,
         'transacoes': transacoes_recentes,
+        
         'form': form,
+        'conta_form': conta_form,
+        'categoria_form': categoria_form,
         
         # Gráfico de Gastos por Categoria
         'labels_grafico': json.dumps(labels_grafico),
@@ -371,6 +377,20 @@ def nova_regra_aporte(request):
         )
         
     return redirect('financeiro:painel_objetivos')
+
+def nova_conta(request):
+    if request.method == 'POST':
+        form = ContaForm(request.POST)
+        if form.is_valid():
+            form.save()
+    return redirect('financeiro:home')
+
+def nova_categoria(request):
+    if request.method == 'POST':
+        form = CategoriaForm(request.POST)
+        if form.is_valid():
+            form.save()
+    return redirect('financeiro:home')
 
 def cron_processar_aportes(request):
     '''

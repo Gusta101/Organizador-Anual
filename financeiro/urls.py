@@ -14,5 +14,7 @@ urlpatterns = [
     path('objetivos/', views.painel_objetivos, name='painel_objetivos'),
     path('objetivos/aporte/', views.novo_aporte, name='novo_aporte'),
     path('objetivos/regra-nova/', views.nova_regra_aporte, name='nova_regra_aporte'),
+    path('conta/nova/', views.nova_conta, name='nova_conta'),
+    path('categoria/nova/', views.nova_categoria, name='nova_categoria'),
     path('cron/aportes-automaticos/', views.cron_processar_aportes, name='cron_aportes'),
 ]

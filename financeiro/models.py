@@ -158,4 +158,3 @@ class RegraAporteAutomatico(models.Model):
 
     def __str__(self):
         return f'Regra Mensal: R$ {self.valor_fixo} para {self.objetivo.titulo}'
-    
