@@ -5,19 +5,38 @@
 {% block content %}
 <div class='container-fluid p-0'>
 
+    <!-- Nav financeiro -->
     <div class='d-flex flex-wrap gap-2 mb-4 pb-2 border-bottom'>
         <a href='{% url "financeiro:painel_orcamentos" %}' class='btn btn-animated bg-color3 text-white'>
-            📊 Orçamentos e Limites
+            <i class='fa-solid fa-chart-column me-2'></i> Orçamentos e Limites
         </a>
         <a href='{% url "financeiro:painel_objetivos" %}' class='btn btn-animated bg-color4 text-white'>
-            🐷 Cofres e Reservas
+            <i class='fa-solid fa-piggy-bank me-2'></i> Cofres e Reservas
         </a>
     </div>
 
+    <!-- Botões função -->
     <div class='d-flex justify-content-between align-items-center mb-4'>
-        <h3 class='m-0' style='font-family: "Caveat", cursive;'>Mês Atual</h3>
-        <button type='button' class='btn btn-animated bg-color5' data-bs-toggle='modal'
-            data-bs-target='#modalTransacao'>
+        
+        <div class="d-flex align-items-center gap-3">
+            <a href="?mes={{ mes_anterior }}&ano={{ ano_anterior }}" class="btn btn-sm btn-outline-secondary" style="border-radius: 30%;">
+                <i class="fas fa-chevron-left"></i>
+            </a>
+            
+            <h3 class='m-0 text-center' style='font-family: "Caveat", cursive; min-width: 150px;'>
+                {{ nome_mes_selecionado }} {{ ano_selecionado }}
+            </h3>
+            
+            <a href="?mes={{ mes_seguinte }}&ano={{ ano_seguinte }}" class="btn btn-sm btn-outline-secondary" style="border-radius: 30%;">
+                <i class="fas fa-chevron-right"></i>
+            </a>
+            
+            {% if nome_mes_selecionado != "Fevereiro" or ano_selecionado != 2026 %}
+                <a href="{% url 'financeiro:home' %}" class="btn btn-sm btn-link text-muted ms-2">Voltar p/ Hoje</a>
+            {% endif %}
+        </div>
+
+        <button type='button' class='btn btn-animated bg-color5' data-bs-toggle='modal' data-bs-target='#modalTransacao'>
             + Nova Transação
         </button>
     </div>
@@ -69,6 +88,13 @@
             {% for item in faturas_dados %}
             <div class='col-md-4'>
                 <div class='summary-card p-3 rounded position-relative' style='border-left: 4px solid var(--color3);'>
+
+                    {% if item.is_futura %}
+                        <span class='badge bg-secondary position-absolute top-0 end-0 mt-2 me-2'>
+                            <i class="fa-solid fa-exclamation me-2"></i>Próxima Fatura<i class="fa-solid fa-exclamation ms-2"></i>
+                        </span>
+                    {% endif %}
+
                     <h5 style='font-family: "Caveat", cursive; color: var(--color3);' class='mb-0'>
                         {{ item.fatura.nome_cartao }}
                     </h5>
@@ -204,22 +230,206 @@
 
 <!-- ========== MODAIS ========== -->
 <!-- Transações -->
-<div class='modal fade' id='modalTransacao' tabindex='-1' aria-labelledby='modalTransacaoLabel' aria-hidden='true'>
+<div class='modal fade' id='modalTransacao' tabindex='-1' aria-hidden='true'>
     <div class='modal-dialog modal-dialog-centered'>
         <div class='modal-content custom-modal-content'>
             <div class='modal-header border-bottom-0'>
-                <h5 class='modal-title' id='modalTransacaoLabel' style='font-family: "Caveat", cursive;'>
-                    Registrar Movimentação
-                </h5>
+                <h5 class='modal-title' style='font-family: "Caveat", cursive; color: var(--color5);'>Registrar Movimentação</h5>
                 <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
             </div>
             <div class='modal-body'>
                 <form method='POST' action=''>
                     {% csrf_token %}
-                    {{ form.as_p }}
+                    
+                    <div class='mb-3'>
+                        {{ form.descricao.label_tag }} {{ form.descricao }}
+                    </div>
+                    <div class='row mb-3'>
+                        <div class='col-6'>{{ form.tipo.label_tag }} {{ form.tipo }}</div>
+                        <div class='col-6'>{{ form.valor.label_tag }} {{ form.valor }}</div>
+                    </div>
+                    <div class='row mb-3'>
+                        <div class='col-6'>{{ form.data_vencimento.label_tag }} {{ form.data_vencimento }}</div>
+                        <div class='col-6 pt-4'>
+                            <div class='form-check'>
+                                {{ form.efetivada }}
+                                <label class='form-check-label fw-bold' for='{{ form.efetivada.id_for_label }}'>Já foi pago/recebido?</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class='row mb-4'>
+                        <div class='col-6'>{{ form.conta.label_tag }} {{ form.conta }}</div>
+                        <div class='col-6'>{{ form.categoria.label_tag }} {{ form.categoria }}</div>
+                    </div>
 
+                    <div class='p-3 mb-4 rounded' style='background-color: var(--bg-body); border: 1px dashed var(--color5);'>
+                        <div class='form-check mb-2'>
+                            {{ form.recorrente }}
+                            <label class='form-check-label text-color-dark fw-bold' for='check_recorrente'>
+                                <i class="fa-solid fa-arrow-rotate-left me-2"></i>Repetir nos próximos meses? (Recorrência/Parcelamento)
+                            </label>
+                        </div>
+                        <div id='div_parcelas' class='mt-2' style='display: none;'>
+                            {{ form.parcelas.label_tag }}
+                            {{ form.parcelas }}
+                            <small class='text-muted'>Serão geradas transações pendentes para os meses seguintes automaticamente.</small>
+                        </div>
+                    </div>
+                    
                     <div class='text-end mt-4'>
                         <button type='submit' class='btn btn-animated bg-color5'>Salvar Transação</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Faturas -->
+<div class='modal fade' id='modalPagamentoFatura' tabindex='-1' aria-hidden='true'>
+    <div class='modal-dialog modal-dialog-centered'>
+        <div class='modal-content custom-modal-content'>
+            <div class='modal-header border-bottom-0'>
+                <h5 class='modal-title' style='font-family: "Caveat", cursive;'>Confirmar Pagamento</h5>
+                <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+            </div>
+            <div class='modal-body'>
+                <p>Você está prestes a pagar a fatura do cartão <strong id='modalNomeCartao'></strong>.</p>
+
+                <form id='formPagamentoFatura' method='POST' action=''>
+                    {% csrf_token %}
+
+                    <div class='mb-3'>
+                        <label for='valor_pagamento' class='form-label'>Valor do Pagamento</label>
+                        <input type='number' class='form-control' id='valor_pagamento' name='valor_pagamento'
+                            step='0.01' readonly>
+                        <small class='text-muted'>O valor total da fatura será debitado da conta escolhida.</small>
+                    </div>
+
+                    <div class='mb-4'>
+                        <label for='conta_pagamento' class='form-label'>Qual conta você vai usar para pagar?</label>
+                        <select class='form-control' id='conta_pagamento' name='conta_pagamento' required>
+                            <option value=''>Selecione uma conta...</option>
+                            {% for conta in contas_ativas %}
+                            <option value='{{ conta.id }}'>{{ conta.nome }} (Saldo: R$ {{
+                                conta.saldo_atual|floatformat:2 }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class='text-end'>
+                        <button type='submit' class='btn btn-animated bg-color5'>Confirmar Pagamento</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class='modal fade' id='modalNovaCompraCartao' tabindex='-1' aria-hidden='true'>
+    <div class='modal-dialog modal-dialog-centered'>
+        <div class='modal-content custom-modal-content'>
+            <div class='modal-header border-bottom-0'>
+                <h5 class='modal-title' style='font-family: "Caveat", cursive;'>Nova Compra - <span id='modalCompraNomeCartao'></span></h5>
+                <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+            </div>
+            <div class='modal-body'>
+                <form id='formNovaCompra' method='POST' action=''>
+                    {% csrf_token %}
+                    
+                    <div class='mb-3'>
+                        <label for='descricao' class='form-label'>Descrição da Compra</label>
+                        <input type='text' class='form-control' id='descricao' name='descricao' required placeholder='Ex: Smartphone, Assinatura Spotify...'>
+                    </div>
+                    
+                    <div class='row mb-3'>
+                        <div class='col-6'>
+                            <label for='valor_compra' class='form-label'>Valor (da Parcela)</label>
+                            <input type='number' class='form-control' id='valor_compra' name='valor' step='0.01' required placeholder='Ex: 50.00'>
+                        </div>
+                        <div class='col-6'>
+                            <label for='data_compra' class='form-label'>Data da Compra</label>
+                            <input type='date' class='form-control' id='data_compra' name='data_compra' required>
+                        </div>
+                    </div>
+
+                    <div class='mb-4'>
+                        <label for='categoria' class='form-label'>Categoria</label>
+                        <select class='form-control' id='categoria' name='categoria'>
+                            <option value=''>Sem categoria...</option>
+                            {% for cat in categorias %}
+                                <option value='{{ cat.id }}'>{{ cat.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class='p-3 mb-4 rounded' style='background-color: var(--bg-body); border: 1px dashed var(--color4);'>
+                        <div class='form-check mb-2'>
+                            <input type='checkbox' class='form-check-input' id='check_recorrente_cartao' name='recorrente_cartao'>
+                            <label class='form-check-label text-color-dark fw-bold' for='check_recorrente_cartao'>
+                                <i class="fa-jelly fa-regular fa-credit-card me-2"></i>Compra Parcelada ou Assinatura Mensal?
+                            </label>
+                        </div>
+                        <div id='div_parcelas_cartao' class='mt-2' style='display: none;'>
+                            <label for='parcelas_cartao' class='form-label'>Em quantas vezes? (Meses)</label>
+                            <input type='number' class='form-control' id='parcelas_cartao' name='parcelas_cartao' min='2' value='2'>
+                            <small class='text-muted'>As faturas dos próximos meses serão criadas automaticamente se não existirem.</small>
+                        </div>
+                    </div>
+                    
+                    <div class='text-end'>
+                        <button type='submit' class='btn btn-animated bg-color5'>Guardar Compra</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class='modal fade' id='modalNovaFatura' tabindex='-1' aria-hidden='true'>
+    <div class='modal-dialog modal-dialog-centered'>
+        <div class='modal-content custom-modal-content'>
+            <div class='modal-header border-bottom-0'>
+                <h5 class='modal-title' style='font-family: "Caveat", cursive; color: var(--color5);'>
+                    Cadastrar Nova Fatura
+                </h5>
+                <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+            </div>
+            <div class='modal-body'>
+                <form method='POST' action='{% url "financeiro:nova_fatura" %}'>
+                    {% csrf_token %}
+
+                    <div class='mb-3'>
+                        <label for='nome_cartao' class='form-label'>Nome do Cartão</label>
+                        <input type='text' class='form-control' id='nome_cartao' name='nome_cartao' required
+                            placeholder='Ex: Nubank, Inter, Itaú...'>
+                    </div>
+
+                    <div class='row mb-3'>
+                        <div class='col-6'>
+                            <label for='mes' class='form-label'>Mês de Referência</label>
+                            <input type='number' class='form-control' id='mes' name='mes' min='1' max='12' required
+                                placeholder='Ex: 3'>
+                        </div>
+                        <div class='col-6'>
+                            <label for='ano' class='form-label'>Ano</label>
+                            <input type='number' class='form-control' id='ano' name='ano' required value='2026'>
+                        </div>
+                    </div>
+
+                    <div class='mb-3'>
+                        <label for='data_fechamento' class='form-label'>Data de Fechamento (Melhor dia para
+                            compra)</label>
+                        <input type='date' class='form-control' id='data_fechamento' name='data_fechamento' required>
+                    </div>
+
+                    <div class='mb-4'>
+                        <label for='data_vencimento' class='form-label'>Data de Vencimento</label>
+                        <input type='date' class='form-control' id='data_vencimento' name='data_vencimento' required>
+                    </div>
+
+                    <div class='text-end'>
+                        <button type='submit' class='btn btn-animated bg-color5'>Salvar Fatura</button>
                     </div>
                 </form>
             </div>
@@ -273,278 +483,153 @@
     </div>
 </div>
 
-<!-- Faturas -->
-<div class='modal fade' id='modalPagamentoFatura' tabindex='-1' aria-hidden='true'>
-    <div class='modal-dialog modal-dialog-centered'>
-        <div class='modal-content custom-modal-content'>
-            <div class='modal-header border-bottom-0'>
-                <h5 class='modal-title' style='font-family: "Caveat", cursive;'>Confirmar Pagamento</h5>
-                <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
-            </div>
-            <div class='modal-body'>
-                <p>Você está prestes a pagar a fatura do cartão <strong id='modalNomeCartao'></strong>.</p>
-
-                <form id='formPagamentoFatura' method='POST' action=''>
-                    {% csrf_token %}
-
-                    <div class='mb-3'>
-                        <label for='valor_pagamento' class='form-label'>Valor do Pagamento</label>
-                        <input type='number' class='form-control' id='valor_pagamento' name='valor_pagamento'
-                            step='0.01' readonly>
-                        <small class='text-muted'>O valor total da fatura será debitado da conta escolhida.</small>
-                    </div>
-
-                    <div class='mb-4'>
-                        <label for='conta_pagamento' class='form-label'>Qual conta você vai usar para pagar?</label>
-                        <select class='form-control' id='conta_pagamento' name='conta_pagamento' required>
-                            <option value=''>Selecione uma conta...</option>
-                            {% for conta in contas_ativas %}
-                            <option value='{{ conta.id }}'>{{ conta.nome }} (Saldo: R$ {{
-                                conta.saldo_atual|floatformat:2 }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class='text-end'>
-                        <button type='submit' class='btn btn-animated bg-color5'>Confirmar Pagamento</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class='modal fade' id='modalNovaCompraCartao' tabindex='-1' aria-hidden='true'>
-    <div class='modal-dialog modal-dialog-centered'>
-        <div class='modal-content custom-modal-content'>
-            <div class='modal-header border-bottom-0'>
-                <h5 class='modal-title' style='font-family: "Caveat", cursive;'>
-                    Adicionar Compra - <span id='modalCompraNomeCartao'></span>
-                </h5>
-                <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
-            </div>
-            <div class='modal-body'>
-                <form id='formNovaCompra' method='POST' action=''>
-                    {% csrf_token %}
-
-                    <div class='mb-3'>
-                        <label for='descricao' class='form-label'>Descrição da Compra</label>
-                        <input type='text' class='form-control' id='descricao' name='descricao' required
-                            placeholder='Ex: Uber, iFood, Farmácia...'>
-                    </div>
-
-                    <div class='mb-3'>
-                        <label for='valor_compra' class='form-label'>Valor</label>
-                        <input type='number' class='form-control' id='valor_compra' name='valor' step='0.01' required
-                            placeholder='0.00'>
-                    </div>
-
-                    <div class='mb-3'>
-                        <label for='data_compra' class='form-label'>Data da Compra</label>
-                        <input type='date' class='form-control' id='data_compra' name='data_compra' required>
-                    </div>
-
-                    <div class='mb-4'>
-                        <label for='categoria' class='form-label'>Categoria</label>
-                        <select class='form-control' id='categoria' name='categoria'>
-                            <option value=''>Sem categoria...</option>
-                            {% for cat in categorias %}
-                            <option value='{{ cat.id }}'>{{ cat.nome }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-
-                    <div class='text-end'>
-                        <button type='submit' class='btn btn-animated bg-color5'>Guardar Compra</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class='modal fade' id='modalNovaFatura' tabindex='-1' aria-hidden='true'>
-    <div class='modal-dialog modal-dialog-centered'>
-        <div class='modal-content custom-modal-content'>
-            <div class='modal-header border-bottom-0'>
-                <h5 class='modal-title' style='font-family: "Caveat", cursive; color: var(--color5);'>
-                    Cadastrar Nova Fatura
-                </h5>
-                <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
-            </div>
-            <div class='modal-body'>
-                <form method='POST' action='{% url "financeiro:nova_fatura" %}'>
-                    {% csrf_token %}
-                    
-                    <div class='mb-3'>
-                        <label for='nome_cartao' class='form-label'>Nome do Cartão</label>
-                        <input type='text' class='form-control' id='nome_cartao' name='nome_cartao' required placeholder='Ex: Nubank, Inter, Itaú...'>
-                    </div>
-
-                    <div class='row mb-3'>
-                        <div class='col-6'>
-                            <label for='mes' class='form-label'>Mês de Referência</label>
-                            <input type='number' class='form-control' id='mes' name='mes' min='1' max='12' required placeholder='Ex: 3'>
-                        </div>
-                        <div class='col-6'>
-                            <label for='ano' class='form-label'>Ano</label>
-                            <input type='number' class='form-control' id='ano' name='ano' required value='2026'>
-                        </div>
-                    </div>
-
-                    <div class='mb-3'>
-                        <label for='data_fechamento' class='form-label'>Data de Fechamento (Melhor dia para compra)</label>
-                        <input type='date' class='form-control' id='data_fechamento' name='data_fechamento' required>
-                    </div>
-
-                    <div class='mb-4'>
-                        <label for='data_vencimento' class='form-label'>Data de Vencimento</label>
-                        <input type='date' class='form-control' id='data_vencimento' name='data_vencimento' required>
-                    </div>
-                    
-                    <div class='text-end'>
-                        <button type='submit' class='btn btn-animated bg-color5'>Salvar Fatura</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
+<!-- ========== JavaScript ========== -->
 <!-- Gráficos -->
 <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // ==========================================
-        // GRÁFICO DE ROSCA (DESPESAS POR CATEGORIA)
-        // ==========================================
-        const labels = JSON.parse('{{ labels_grafico|safe }}');
-        const valores = JSON.parse('{{ valores_grafico|safe }}');
-        const cores = JSON.parse('{{ cores_grafico|safe }}');
+        
+        // 1. ESPERA AS FONTES CARREGAREM ANTES DE DESENHAR O GRÁFICO
+        document.fonts.ready.then(function() {
+            
+            // 2. CONFIGURAÇÃO GLOBAL DO CHART.JS
+            // Define a fonte e a cor para todos os textos de todos os gráficos
+            Chart.defaults.font.family = '\'Balsamiq Sans\', cursive';
+            Chart.defaults.color = getComputedStyle(document.body).getPropertyValue('--text-main').trim() || '#333';
 
-        // Só renderiza o gráfico se houver dados
-        if (valores.length > 0) {
-            const ctx = document.getElementById('graficoCategorias').getContext('2d');
+            // ==========================================
+            // GRÁFICO DE ROSCA (DESPESAS POR CATEGORIA)
+            // ==========================================
+            const labels = JSON.parse('{{ labels_grafico|safe }}');
+            const valores = JSON.parse('{{ valores_grafico|safe }}');
+            const cores = JSON.parse('{{ cores_grafico|safe }}');
 
-            // Vai buscar as cores do seu tema para o texto do gráfico adaptar-se ao Dark Mode
-            const textColor = getComputedStyle(document.body).getPropertyValue('--text-main').trim() || '#333';
+            // Só renderiza o gráfico se houver dados
+            if (valores.length > 0) {
+                const ctx = document.getElementById('graficoCategorias').getContext('2d');
 
-            new Chart(ctx, {
-                type: 'doughnut', // Gráfico de Rosca
+                new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            data: valores,
+                            backgroundColor: cores,
+                            borderWidth: 2,
+                            borderColor: getComputedStyle(document.body).getPropertyValue('--bg-body').trim() 
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: { size: 14 } // Fonte e cor já estão no defaults
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function (context) {
+                                        let label = context.label || '';
+                                        if (label) { label += ': '; }
+                                        if (context.parsed !== null) { label += 'R$ ' + context.parsed.toFixed(2); }
+                                        return label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // ==========================================
+            // GRÁFICO DE BARRAS (FLUXO DE CAIXA)
+            // ==========================================
+            const labelsFluxo = JSON.parse('{{ meses_labels|safe }}');
+            const dadosReceitas = JSON.parse('{{ receitas_data|safe }}');
+            const dadosDespesas = JSON.parse('{{ despesas_data|safe }}');
+
+            const ctxFluxo = document.getElementById('graficoFluxo').getContext('2d');
+            const corLinhaGrid = getComputedStyle(document.body).getPropertyValue('--border-color').trim();
+
+            new Chart(ctxFluxo, {
+                type: 'bar',
                 data: {
-                    labels: labels,
-                    datasets: [{
-                        data: valores,
-                        backgroundColor: cores,
-                        borderWidth: 2,
-                        borderColor: getComputedStyle(document.body).getPropertyValue('--bg-body').trim() // Borda herda o fundo
-                    }]
+                    labels: labelsFluxo,
+                    datasets: [
+                        {
+                            label: 'Receitas',
+                            data: dadosReceitas,
+                            backgroundColor: 'rgba(46, 204, 113, 0.7)',
+                            borderColor: '#2ecc71',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        },
+                        {
+                            label: 'Despesas',
+                            data: dadosDespesas,
+                            backgroundColor: 'rgba(231, 76, 60, 0.7)',
+                            borderColor: '#e74c3c',
+                            borderWidth: 1,
+                            borderRadius: 4
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            position: 'right',
-                            labels: {
-                                color: textColor,
-                                font: {
-                                    family: "'Patrick Hand', cursive",
-                                    size: 14
-                                }
-                            }
+                            position: 'top',
+                            labels: { size: 14 } // Fonte e cor já estão no defaults
                         },
                         tooltip: {
                             callbacks: {
                                 label: function (context) {
-                                    let label = context.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    if (context.parsed !== null) {
-                                        label += 'R$ ' + context.parsed.toFixed(2);
-                                    }
-                                    return label;
+                                    return context.dataset.label + ': R$ ' + context.parsed.y.toFixed(2);
                                 }
                             }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: corLinhaGrid } 
+                        },
+                        x: {
+                            ticks: { size: 13 },
+                            grid: { display: false } 
                         }
                     }
                 }
             });
-        }
+            
+        }); // Fim da espera pelas fontes
+    });
+</script>
 
-        // ==========================================
-        // GRÁFICO DE BARRAS (FLUXO DE CAIXA)
-        // ==========================================
-        const labelsFluxo = JSON.parse('{{ meses_labels|safe }}');
-        const dadosReceitas = JSON.parse('{{ receitas_data|safe }}');
-        const dadosDespesas = JSON.parse('{{ despesas_data|safe }}');
-
-        const ctxFluxo = document.getElementById('graficoFluxo').getContext('2d');
-        const corLinhaGrid = getComputedStyle(document.body).getPropertyValue('--border-color').trim();
-
-        new Chart(ctxFluxo, {
-            type: 'bar',
-            data: {
-                labels: labelsFluxo,
-                datasets: [
-                    {
-                        label: 'Receitas',
-                        data: dadosReceitas,
-                        backgroundColor: 'rgba(46, 204, 113, 0.7)', // Verde
-                        borderColor: '#2ecc71',
-                        borderWidth: 1,
-                        borderRadius: 4 // Arredonda o topo das barras
-                    },
-                    {
-                        label: 'Despesas',
-                        data: dadosDespesas,
-                        backgroundColor: 'rgba(231, 76, 60, 0.7)', // Vermelho
-                        borderColor: '#e74c3c',
-                        borderWidth: 1,
-                        borderRadius: 4
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'top',
-                        labels: {
-                            color: textColor, // Usa a variável de texto do Dark Mode criada no gráfico anterior
-                            font: { family: "'Patrick Hand', cursive", size: 14 }
-                        }
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function (context) {
-                                return context.dataset.label + ': R$ ' + context.parsed.y.toFixed(2);
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: { color: textColor, font: { family: "'Patrick Hand', cursive" } },
-                        grid: { color: corLinhaGrid } // As linhas do fundo adaptam-se ao modo claro/escuro
-                    },
-                    x: {
-                        ticks: { color: textColor, font: { family: "'Patrick Hand', cursive", size: 13 } },
-                        grid: { display: false } // Remove as linhas verticais para ficar mais limpo
-                    }
+<!-- Modals transação -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const checkRecorrente = document.getElementById('check_recorrente');
+        const divParcelas = document.getElementById('div_parcelas');
+        
+        if(checkRecorrente && divParcelas) {
+            checkRecorrente.addEventListener('change', function() {
+                if(this.checked) {
+                    divParcelas.style.display = 'block';
+                } else {
+                    divParcelas.style.display = 'none';
                 }
-            }
-        });
+            });
+        }
     });
 </script>
 
 <!-- Modais fatura -->
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         // --- Lógica para o Modal de Pagamento ---
         const botoesPagar = document.querySelectorAll('.btn-pagar-antecipado');
         const formPagamento = document.getElementById('formPagamentoFatura');
@@ -552,7 +637,7 @@
         const labelNomeCartao = document.getElementById('modalNomeCartao');
 
         botoesPagar.forEach(botao => {
-            botao.addEventListener('click', function() {
+            botao.addEventListener('click', function () {
                 const faturaId = this.getAttribute('data-fatura-id');
                 const faturaNome = this.getAttribute('data-fatura-nome');
                 const faturaValor = this.getAttribute('data-fatura-valor');
@@ -567,13 +652,13 @@
         const botoesCompra = document.querySelectorAll('.btn-nova-compra');
         const formNovaCompra = document.getElementById('formNovaCompra');
         const labelCompraNomeCartao = document.getElementById('modalCompraNomeCartao');
-        
+
         // Define a data de hoje como padrão no input de data
         const inputDataCompra = document.getElementById('data_compra');
         inputDataCompra.valueAsDate = new Date();
 
         botoesCompra.forEach(botao => {
-            botao.addEventListener('click', function() {
+            botao.addEventListener('click', function () {
                 const faturaId = this.getAttribute('data-fatura-id');
                 const faturaNome = this.getAttribute('data-fatura-nome');
 
@@ -581,6 +666,26 @@
                 formNovaCompra.action = "{% url 'financeiro:adicionar_compra_cartao' 0 %}".replace('0', faturaId);
             });
         });
+    });
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // ... (o seu código JavaScript anterior continua aqui) ...
+
+        // Lógica para mostrar/esconder o campo de parcelas no Cartão
+        const checkRecorrenteCartao = document.getElementById('check_recorrente_cartao');
+        const divParcelasCartao = document.getElementById('div_parcelas_cartao');
+        
+        if(checkRecorrenteCartao && divParcelasCartao) {
+            checkRecorrenteCartao.addEventListener('change', function() {
+                if(this.checked) {
+                    divParcelasCartao.style.display = 'block';
+                } else {
+                    divParcelasCartao.style.display = 'none';
+                }
+            });
+        }
     });
 </script>
 

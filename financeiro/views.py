@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
-from django.db.models import Sum
+from django.db.models import Sum, Q
 from django.utils import timezone
 
 from objetivos.models import ObjetivoMacro
@@ -8,69 +8,154 @@ from .models import OrcamentoMensal, RegraAporteAutomatico, Transacao, Conta, Fa
 from .forms import CategoriaForm, ContaForm, TransacaoForm
 
 import json
+from datetime import date
+import calendar
+
+def adicionar_meses(data_original, meses):
+    if hasattr(data_original, 'date') and callable(data_original.date):
+        data_original = data_original.date()
+        
+    mes = data_original.month - 1 + meses
+    ano = data_original.year + mes // 12
+    mes = mes % 12 + 1
+    dia = min(data_original.day, calendar.monthrange(ano, mes)[1])
+    
+    return date(ano, mes, dia)
 
 def dashboard_financeiro(request):
     if request.method == 'POST':
         form = TransacaoForm(request.POST)
         if form.is_valid():
-            form.save()
+            transacao = form.save(commit=False)
+            
+            if transacao.efetivada and not hasattr(transacao, 'data_pagamento') or not transacao.data_pagamento:
+                transacao.data_pagamento = transacao.data_vencimento
+
+            recorrente = form.cleaned_data.get('recorrente')
+            parcelas = form.cleaned_data.get('parcelas') or 1
+            
+            if recorrente and parcelas > 1:
+                transacao.total_parcelas = parcelas
+                transacao.numero_parcela = 1
+                transacao.save() 
+                
+                for i in range(1, parcelas):
+                    nova_data = adicionar_meses(transacao.data_vencimento, i)
+                    Transacao.objects.create(
+                        descricao=f'{transacao.descricao} ({i+1}/{parcelas})',
+                        tipo=transacao.tipo,
+                        valor=transacao.valor,
+                        data_vencimento=nova_data,
+                        conta=transacao.conta,
+                        categoria=transacao.categoria,
+                        efetivada=False,
+                        transacao_pai=transacao,
+                        numero_parcela=i+1,
+                        total_parcelas=parcelas
+                    )
+            else:
+                transacao.save()
+
             return redirect('financeiro:home')
+        else:
+            print("\n" + "!"*40)
+            print("ERRO DE VALIDAÇÃO NO FORMULÁRIO DE TRANSAÇÃO:")
+            print(form.errors)
+            print("!"*40 + "\n")
+            
     else:
         form = TransacaoForm()
-
+        
     hoje = timezone.now()
     mes_atual = hoje.month
     ano_atual = hoje.year
+    
+    try:
+        mes_selecionado = int(request.GET.get('mes', hoje.month))
+        ano_selecionado = int(request.GET.get('ano', hoje.year))
+    except ValueError:
+        mes_selecionado = hoje.month
+        ano_selecionado = hoje.year
+    
+    mes_anterior = mes_selecionado - 1 if mes_selecionado > 1 else 12
+    ano_anterior = ano_selecionado if mes_selecionado > 1 else ano_selecionado - 1
+    mes_seguinte = mes_selecionado + 1 if mes_selecionado < 12 else 1
+    ano_seguinte = ano_selecionado if mes_selecionado < 12 else ano_selecionado + 1
+    
+    nomes_meses = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+    nome_mes_selecionado = nomes_meses[mes_selecionado]
 
     # ==========================================
-    # 1. SALDOS E FATURAS EM ABERTO
+    # 1. SALDO ATUAL E PROJETADO
     # ==========================================
     contas_ativas = Conta.objects.filter(ativa=True)
     saldo_geral = sum([conta.saldo_atual for conta in contas_ativas])
 
-    faturas_abertas = FaturaCartao.objects.filter(paga=False).order_by('data_vencimento')
-    faturas_dados = []
-    total_faturas_pendentes = 0
+    # Descobre qual é o último dia do mês que o utilizador selecionou
+    ultimo_dia = calendar.monthrange(ano_selecionado, mes_selecionado)[1]
+    data_limite_projecao = date(ano_selecionado, mes_selecionado, ultimo_dia)
 
-    for fatura in faturas_abertas:
-        gasto = fatura.compras.aggregate(total=Sum('valor'))['total'] or 0
-        total_faturas_pendentes += float(gasto)
-        faturas_dados.append({
-            'fatura': fatura,
-            'total_gasto': gasto,
-        })
-
-    # Previsão Real: Quanto vai sobrar depois de pagar todos os cartões?
-    saldo_projetado = float(saldo_geral) - total_faturas_pendentes
-
-    # ==========================================
-    # 2. RECEITAS E DESPESAS TOTAIS DO MÊS
-    # ==========================================
-    total_receitas = Transacao.objects.filter(
-        tipo='RECEITA', data_vencimento__month=mes_atual, data_vencimento__year=ano_atual, efetivada=True
+    # Pega tudo que NÃO FOI PAGO DE HOJE ATÉ O FIM DO MÊS SELECIONADO
+    receitas_pendentes = Transacao.objects.filter(
+        tipo='RECEITA', efetivada=False, data_vencimento__lte=data_limite_projecao
     ).aggregate(total=Sum('valor'))['total'] or 0
 
-    # Despesas normais (Excluímos a transação de "Pagamento Fatura" para não contar 2x)
+    despesas_pendentes = Transacao.objects.filter(
+        tipo='DESPESA', efetivada=False, data_vencimento__lte=data_limite_projecao
+    ).exclude(descricao__startswith='Pagamento Fatura').aggregate(total=Sum('valor'))['total'] or 0
+
+    # Pega todas as faturas abertas do passado até o mês selecionado
+    faturas_pendentes = FaturaCartao.objects.filter(paga=False).filter(
+        Q(ano__lt=ano_selecionado) | Q(ano=ano_selecionado, mes__lte=mes_selecionado)
+    )
+    total_faturas_projecao = sum([float(f.compras.aggregate(t=Sum('valor'))['t'] or 0) for f in faturas_pendentes])
+
+    # Saldo Mágico: O seu dinheiro de hoje + o que vai entrar - o que vai sair
+    saldo_projetado = float(saldo_geral) + float(receitas_pendentes) - float(despesas_pendentes) - total_faturas_projecao
+
+    # ==========================================
+    # 2. RECEITAS E DESPESAS DO MÊS SELECIONADO
+    # ==========================================
+    total_receitas = Transacao.objects.filter(
+        tipo='RECEITA', data_vencimento__month=mes_selecionado, data_vencimento__year=ano_selecionado
+    ).aggregate(total=Sum('valor'))['total'] or 0
+
     despesas_normais = Transacao.objects.filter(
-        tipo='DESPESA', data_vencimento__month=mes_atual, data_vencimento__year=ano_atual, efetivada=True
+        tipo='DESPESA', data_vencimento__month=mes_selecionado, data_vencimento__year=ano_selecionado
     ).exclude(descricao__startswith='Pagamento Fatura').aggregate(total=Sum('valor'))['total'] or 0
     
-    # Compras feitas no cartão este mês
     despesas_cartao_mes = TransacaoCartao.objects.filter(
-        data_compra__month=mes_atual, data_compra__year=ano_atual
+        fatura__mes=mes_selecionado, fatura__ano=ano_selecionado
     ).aggregate(total=Sum('valor'))['total'] or 0
 
     total_despesas = float(despesas_normais) + float(despesas_cartao_mes)
+    
+    # ==========================================
+    # 3. FATURAS PARA A TELA (Atrasadas + Mês Atual + Mês Seguinte)
+    # ==========================================
+    faturas_abertas = FaturaCartao.objects.filter(paga=False).filter(
+        Q(ano__lt=ano_seguinte) | Q(ano=ano_seguinte, mes__lte=mes_seguinte)
+    ).order_by('data_vencimento')
+
+    faturas_dados = []
+    for fatura in faturas_abertas:
+        gasto = fatura.compras.aggregate(total=Sum('valor'))['total'] or 0
+        is_futura = (fatura.mes == mes_seguinte and fatura.ano == ano_seguinte)
+        faturas_dados.append({
+            'fatura': fatura,
+            'total_gasto': gasto,
+            'is_futura': is_futura,
+        })
 
     # ==========================================
-    # 3. GRÁFICO DE ROSCA (Juntando Conta + Cartão)
+    # 4. GRÁFICO DE ROSCA (Juntando Conta + Cartão)
     # ==========================================
     gastos_transacoes = Transacao.objects.filter(
-        tipo='DESPESA', data_vencimento__month=mes_atual, data_vencimento__year=ano_atual, efetivada=True
+        tipo='DESPESA', data_vencimento__month=mes_selecionado, data_vencimento__year=ano_selecionado, efetivada=True
     ).exclude(descricao__startswith='Pagamento Fatura').values('categoria__nome', 'categoria__cor').annotate(total=Sum('valor'))
 
     gastos_cartao = TransacaoCartao.objects.filter(
-        data_compra__month=mes_atual, data_compra__year=ano_atual
+        fatura__mes=mes_selecionado, fatura__ano=ano_selecionado # CORREÇÃO AQUI TAMBÉM
     ).values('categoria__nome', 'categoria__cor').annotate(total=Sum('valor'))
 
     categorias_dict = {}
@@ -95,7 +180,7 @@ def dashboard_financeiro(request):
     cores_grafico = [d['cor'] for d in categorias_dict.values()]
 
     # ==========================================
-    # 4. GRÁFICO DE BARRAS (Últimos 6 meses integrados)
+    # 5. GRÁFICO DE BARRAS (Últimos 6 meses integrados)
     # ==========================================
     meses_labels = []
     receitas_data = []
@@ -133,17 +218,28 @@ def dashboard_financeiro(request):
     categorias_gerais = CategoriaFinanceira.objects.all()
 
     context = {
+        'mes_selecionado': mes_selecionado,
+        'ano_selecionado': ano_selecionado,
+        'nome_mes_selecionado': nome_mes_selecionado,
+        'mes_anterior': mes_anterior,
+        'ano_anterior': ano_anterior,
+        'mes_seguinte': mes_seguinte,
+        'ano_seguinte': ano_seguinte,
+        
         'total_receitas': total_receitas,
         'total_despesas': total_despesas,
         'saldo': saldo_geral,
         'saldo_projetado': saldo_projetado,
         'faturas_dados': faturas_dados,
+        
         'contas_ativas': contas_ativas,
         'categorias': categorias_gerais,
         'transacoes': transacoes_recentes,
+        
         'form': form,
         'conta_form': ContaForm(),
         'categoria_form': CategoriaForm(),
+        
         'labels_grafico': json.dumps(labels_grafico),
         'valores_grafico': json.dumps(valores_grafico),
         'cores_grafico': json.dumps(cores_grafico),
@@ -200,25 +296,59 @@ def pagar_fatura(request, fatura_id):
 
 def adicionar_compra_cartao(request, fatura_id):
     if request.method == 'POST':
-        fatura = get_object_or_404(FaturaCartao, id=fatura_id)
+        fatura_atual = get_object_or_404(FaturaCartao, id=fatura_id)
         descricao = request.POST.get('descricao')
-        valor = request.POST.get('valor')
+        # Precisamos de converter a vírgula para ponto caso o utilizador digite "50,00"
+        valor_str = request.POST.get('valor').replace(',', '.')
+        valor = float(valor_str)
         data_compra = request.POST.get('data_compra')
         categoria_id = request.POST.get('categoria')
+        
+        # Novos campos do formulário para o parcelamento
+        recorrente = request.POST.get('recorrente_cartao') == 'on'
+        parcelas = int(request.POST.get('parcelas_cartao') or 1)
 
         categoria = None
         if categoria_id:
             categoria = get_object_or_404(CategoriaFinanceira, id=categoria_id)
 
-        # Regista a nova compra vinculada a esta fatura
-        TransacaoCartao.objects.create(
-            fatura=fatura,
-            descricao=descricao,
-            valor=valor,
-            data_compra=data_compra,
-            categoria=categoria
-        )
-        
+        if recorrente and parcelas > 1:
+            for i in range(parcelas):
+                # 1. Calcula qual será o mês e o ano da parcela atual do laço
+                mes_futuro = (fatura_atual.mes - 1 + i) % 12 + 1
+                ano_futuro = fatura_atual.ano + (fatura_atual.mes - 1 + i) // 12
+                
+                # 2. Busca a fatura desse mês futuro. Se não existir, cria uma nova!
+                fatura_destino, criada = FaturaCartao.objects.get_or_create(
+                    nome_cartao=fatura_atual.nome_cartao,
+                    mes=mes_futuro,
+                    ano=ano_futuro,
+                    defaults={
+                        # Calcula os dias de fechamento e vencimento futuros
+                        'data_fechamento': adicionar_meses(fatura_atual.data_fechamento, i),
+                        'data_vencimento': adicionar_meses(fatura_atual.data_vencimento, i),
+                        'paga': False
+                    }
+                )
+                
+                # 3. Adiciona a compra dentro dessa fatura (Ex: "iPhone (1/12)")
+                TransacaoCartao.objects.create(
+                    fatura=fatura_destino,
+                    descricao=f'{descricao} ({i+1}/{parcelas})',
+                    valor=valor, # Valor DE CADA parcela
+                    data_compra=data_compra,
+                    categoria=categoria
+                )
+        else:
+            # Compra normal à vista no crédito
+            TransacaoCartao.objects.create(
+                fatura=fatura_atual,
+                descricao=descricao,
+                valor=valor,
+                data_compra=data_compra,
+                categoria=categoria
+            )
+            
     return redirect('financeiro:home')
 
 def painel_orcamentos(request):
