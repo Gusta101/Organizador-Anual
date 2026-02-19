@@ -6,9 +6,6 @@
 <div class='container-fluid p-0'>
 
     <div class='d-flex flex-wrap gap-2 mb-4 pb-2 border-bottom'>
-        <a href='{% url "financeiro:painel_cartoes" %}' class='btn btn-animated bg-color2 text-white'>
-            💳 Cartões de Crédito
-        </a>
         <a href='{% url "financeiro:painel_orcamentos" %}' class='btn btn-animated bg-color3 text-white'>
             📊 Orçamentos e Limites
         </a>
@@ -25,29 +22,87 @@
         </button>
     </div>
 
+    <!-- ========== DASHBOARD ========== -->
+    <!-- Cards resumo -->
     <div class='row mb-4 g-3'>
-        <div class='col-md-4'>
+        <div class='col-md-3'>
             <div class='summary-card p-3 rounded text-center'>
-                <h5 class='text-muted'>Receitas</h5>
-                <p class='valor positivo fs-2'>R$ {{ total_receitas|floatformat:2 }}</p>
+                <h6 class='text-muted'>Receitas</h6>
+                <p class='valor positivo fs-3'>R$ {{ total_receitas|floatformat:2 }}</p>
             </div>
         </div>
-        <div class='col-md-4'>
+        <div class='col-md-3'>
             <div class='summary-card p-3 rounded text-center'>
-                <h5 class='text-muted'>Despesas</h5>
-                <p class='valor negativo fs-2'>R$ {{ total_despesas|floatformat:2 }}</p>
+                <h6 class='text-muted'>Despesas (Geral)</h6>
+                <p class='valor negativo fs-3'>R$ {{ total_despesas|floatformat:2 }}</p>
             </div>
         </div>
-        <div class='col-md-4'>
+        <div class='col-md-3'>
             <div class='summary-card p-3 rounded text-center border-primary'>
-                <h5 class='text-muted'>Saldo Atual Geral</h5>
-                <p class='valor {% if saldo < 0 %}negativo{% else %}positivo{% endif %} fs-2'>
+                <h6 class='text-muted'>Saldo Em Conta</h6>
+                <p class='valor {% if saldo < 0 %}negativo{% else %}positivo{% endif %} fs-3'>
                     R$ {{ saldo|floatformat:2 }}
+                </p>
+            </div>
+        </div>
+        <div class='col-md-3'>
+            <div class='summary-card p-3 rounded text-center' style='border: 2px dashed var(--color5);'>
+                <h6 class='text-muted'>Previsão (Após Faturas)</h6>
+                <p class='valor {% if saldo_projetado < 0 %}negativo{% else %}text-color-dark{% endif %} fs-3'>
+                    R$ {{ saldo_projetado|floatformat:2 }}
                 </p>
             </div>
         </div>
     </div>
 
+    <!-- Faturas -->
+    <div class='mb-5'>
+        <div class='d-flex justify-content-between align-items-center mb-3'>
+            <h4 class='m-0' style='font-family: "Caveat", cursive;'>Faturas em Aberto</h4>
+            <button type='button' class='btn btn-sm btn-outline-secondary' style='font-family: "Patrick Hand", cursive;'
+                data-bs-toggle='modal' data-bs-target='#modalNovaFatura'>
+                + Cadastrar Cartão
+            </button>
+        </div>
+
+        <div class='row g-3'>
+            {% for item in faturas_dados %}
+            <div class='col-md-4'>
+                <div class='summary-card p-3 rounded position-relative' style='border-left: 4px solid var(--color3);'>
+                    <h5 style='font-family: "Caveat", cursive; color: var(--color3);' class='mb-0'>
+                        {{ item.fatura.nome_cartao }}
+                    </h5>
+                    <p class='text-muted small mb-2'>Vence: {{ item.fatura.data_vencimento|date:'d/m/Y' }}</p>
+
+                    <h3 class='valor negativo mb-3'>R$ {{ item.total_gasto|floatformat:2 }}</h3>
+
+                    <div class='d-flex gap-2'>
+                        <button type='button' class='btn btn-sm btn-animated bg-color5 flex-grow-1 btn-nova-compra'
+                            data-bs-toggle='modal' data-bs-target='#modalNovaCompraCartao'
+                            data-fatura-id='{{ item.fatura.id }}' data-fatura-nome='{{ item.fatura.nome_cartao }}'>
+                            + Compra
+                        </button>
+                        <button type='button' class='btn btn-sm btn-animated bg-color4 flex-grow-1 btn-pagar-antecipado'
+                            data-bs-toggle='modal' data-bs-target='#modalPagamentoFatura'
+                            data-fatura-id='{{ item.fatura.id }}' data-fatura-nome='{{ item.fatura.nome_cartao }}'
+                            data-fatura-valor='{{ item.total_gasto|stringformat:"f" }}'>
+                            Pagar
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class='col-12'>
+                <div class='alert text-center m-0 py-2'
+                    style='background-color: var(--bg-body); border: 1px dashed var(--border-color); color: var(--text-main);'>
+                    Nenhuma fatura em aberto! Tudo em dia.
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Cards dashboard -->
     <div class='row mb-4 g-4'>
         <div class='col-md-6 col-lg-5'>
             <div class='summary-card p-4 rounded h-100 d-flex flex-column align-items-center'>
@@ -78,6 +133,7 @@
         </div>
     </div>
 
+    <!-- Tabelas transações -->
     <div class='transactions-section mt-5'>
         <h4 class='mb-3' style='font-family: "Caveat", cursive;'>Lançamentos Recentes</h4>
         <div class='table-responsive'>
@@ -124,6 +180,7 @@
         </div>
     </div>
 
+    <!-- Configurações inicias -->
     <div class='mt-5 pt-4 pb-4 border-top'>
         <h4 class='mb-3' style='font-family: "Caveat", cursive; color: var(--color3);'>
             ⚙️ Configurações Iniciais
@@ -145,6 +202,32 @@
 
 </div>
 
+<!-- ========== MODAIS ========== -->
+<!-- Transações -->
+<div class='modal fade' id='modalTransacao' tabindex='-1' aria-labelledby='modalTransacaoLabel' aria-hidden='true'>
+    <div class='modal-dialog modal-dialog-centered'>
+        <div class='modal-content custom-modal-content'>
+            <div class='modal-header border-bottom-0'>
+                <h5 class='modal-title' id='modalTransacaoLabel' style='font-family: "Caveat", cursive;'>
+                    Registrar Movimentação
+                </h5>
+                <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+            </div>
+            <div class='modal-body'>
+                <form method='POST' action=''>
+                    {% csrf_token %}
+                    {{ form.as_p }}
+
+                    <div class='text-end mt-4'>
+                        <button type='submit' class='btn btn-animated bg-color5'>Salvar Transação</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Configurações Inicias -->
 <div class='modal fade' id='modalNovaConta' tabindex='-1' aria-hidden='true'>
     <div class='modal-dialog modal-dialog-centered'>
         <div class='modal-content custom-modal-content'>
@@ -178,6 +261,9 @@
                 <form method='POST' action='{% url "financeiro:nova_categoria" %}'>
                     {% csrf_token %}
                     {{ categoria_form.as_p }}
+                    <a href="https://fontawesome.com/search?ic=free-collection" target="_blank">
+                        < Lista de ícones>
+                    </a>
                     <div class='text-end mt-4'>
                         <button type='submit' class='btn btn-animated bg-color5'>Salvar Categoria</button>
                     </div>
@@ -187,22 +273,40 @@
     </div>
 </div>
 
-<div class='modal fade' id='modalTransacao' tabindex='-1' aria-labelledby='modalTransacaoLabel' aria-hidden='true'>
+<!-- Faturas -->
+<div class='modal fade' id='modalPagamentoFatura' tabindex='-1' aria-hidden='true'>
     <div class='modal-dialog modal-dialog-centered'>
         <div class='modal-content custom-modal-content'>
             <div class='modal-header border-bottom-0'>
-                <h5 class='modal-title' id='modalTransacaoLabel' style='font-family: "Caveat", cursive;'>
-                    Registrar Movimentação
-                </h5>
+                <h5 class='modal-title' style='font-family: "Caveat", cursive;'>Confirmar Pagamento</h5>
                 <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
             </div>
             <div class='modal-body'>
-                <form method='POST' action=''>
-                    {% csrf_token %}
-                    {{ form.as_p }}
+                <p>Você está prestes a pagar a fatura do cartão <strong id='modalNomeCartao'></strong>.</p>
 
-                    <div class='text-end mt-4'>
-                        <button type='submit' class='btn btn-animated bg-color5'>Salvar Transação</button>
+                <form id='formPagamentoFatura' method='POST' action=''>
+                    {% csrf_token %}
+
+                    <div class='mb-3'>
+                        <label for='valor_pagamento' class='form-label'>Valor do Pagamento</label>
+                        <input type='number' class='form-control' id='valor_pagamento' name='valor_pagamento'
+                            step='0.01' readonly>
+                        <small class='text-muted'>O valor total da fatura será debitado da conta escolhida.</small>
+                    </div>
+
+                    <div class='mb-4'>
+                        <label for='conta_pagamento' class='form-label'>Qual conta você vai usar para pagar?</label>
+                        <select class='form-control' id='conta_pagamento' name='conta_pagamento' required>
+                            <option value=''>Selecione uma conta...</option>
+                            {% for conta in contas_ativas %}
+                            <option value='{{ conta.id }}'>{{ conta.nome }} (Saldo: R$ {{
+                                conta.saldo_atual|floatformat:2 }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class='text-end'>
+                        <button type='submit' class='btn btn-animated bg-color5'>Confirmar Pagamento</button>
                     </div>
                 </form>
             </div>
@@ -210,6 +314,104 @@
     </div>
 </div>
 
+<div class='modal fade' id='modalNovaCompraCartao' tabindex='-1' aria-hidden='true'>
+    <div class='modal-dialog modal-dialog-centered'>
+        <div class='modal-content custom-modal-content'>
+            <div class='modal-header border-bottom-0'>
+                <h5 class='modal-title' style='font-family: "Caveat", cursive;'>
+                    Adicionar Compra - <span id='modalCompraNomeCartao'></span>
+                </h5>
+                <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+            </div>
+            <div class='modal-body'>
+                <form id='formNovaCompra' method='POST' action=''>
+                    {% csrf_token %}
+
+                    <div class='mb-3'>
+                        <label for='descricao' class='form-label'>Descrição da Compra</label>
+                        <input type='text' class='form-control' id='descricao' name='descricao' required
+                            placeholder='Ex: Uber, iFood, Farmácia...'>
+                    </div>
+
+                    <div class='mb-3'>
+                        <label for='valor_compra' class='form-label'>Valor</label>
+                        <input type='number' class='form-control' id='valor_compra' name='valor' step='0.01' required
+                            placeholder='0.00'>
+                    </div>
+
+                    <div class='mb-3'>
+                        <label for='data_compra' class='form-label'>Data da Compra</label>
+                        <input type='date' class='form-control' id='data_compra' name='data_compra' required>
+                    </div>
+
+                    <div class='mb-4'>
+                        <label for='categoria' class='form-label'>Categoria</label>
+                        <select class='form-control' id='categoria' name='categoria'>
+                            <option value=''>Sem categoria...</option>
+                            {% for cat in categorias %}
+                            <option value='{{ cat.id }}'>{{ cat.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class='text-end'>
+                        <button type='submit' class='btn btn-animated bg-color5'>Guardar Compra</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class='modal fade' id='modalNovaFatura' tabindex='-1' aria-hidden='true'>
+    <div class='modal-dialog modal-dialog-centered'>
+        <div class='modal-content custom-modal-content'>
+            <div class='modal-header border-bottom-0'>
+                <h5 class='modal-title' style='font-family: "Caveat", cursive; color: var(--color5);'>
+                    Cadastrar Nova Fatura
+                </h5>
+                <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
+            </div>
+            <div class='modal-body'>
+                <form method='POST' action='{% url "financeiro:nova_fatura" %}'>
+                    {% csrf_token %}
+                    
+                    <div class='mb-3'>
+                        <label for='nome_cartao' class='form-label'>Nome do Cartão</label>
+                        <input type='text' class='form-control' id='nome_cartao' name='nome_cartao' required placeholder='Ex: Nubank, Inter, Itaú...'>
+                    </div>
+
+                    <div class='row mb-3'>
+                        <div class='col-6'>
+                            <label for='mes' class='form-label'>Mês de Referência</label>
+                            <input type='number' class='form-control' id='mes' name='mes' min='1' max='12' required placeholder='Ex: 3'>
+                        </div>
+                        <div class='col-6'>
+                            <label for='ano' class='form-label'>Ano</label>
+                            <input type='number' class='form-control' id='ano' name='ano' required value='2026'>
+                        </div>
+                    </div>
+
+                    <div class='mb-3'>
+                        <label for='data_fechamento' class='form-label'>Data de Fechamento (Melhor dia para compra)</label>
+                        <input type='date' class='form-control' id='data_fechamento' name='data_fechamento' required>
+                    </div>
+
+                    <div class='mb-4'>
+                        <label for='data_vencimento' class='form-label'>Data de Vencimento</label>
+                        <input type='date' class='form-control' id='data_vencimento' name='data_vencimento' required>
+                    </div>
+                    
+                    <div class='text-end'>
+                        <button type='submit' class='btn btn-animated bg-color5'>Salvar Fatura</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráficos -->
 <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
 
 <script>
@@ -336,6 +538,48 @@
                     }
                 }
             }
+        });
+    });
+</script>
+
+<!-- Modais fatura -->
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- Lógica para o Modal de Pagamento ---
+        const botoesPagar = document.querySelectorAll('.btn-pagar-antecipado');
+        const formPagamento = document.getElementById('formPagamentoFatura');
+        const inputValor = document.getElementById('valor_pagamento');
+        const labelNomeCartao = document.getElementById('modalNomeCartao');
+
+        botoesPagar.forEach(botao => {
+            botao.addEventListener('click', function() {
+                const faturaId = this.getAttribute('data-fatura-id');
+                const faturaNome = this.getAttribute('data-fatura-nome');
+                const faturaValor = this.getAttribute('data-fatura-valor');
+
+                labelNomeCartao.textContent = faturaNome;
+                inputValor.value = faturaValor.replace(',', '.');
+                formPagamento.action = "{% url 'financeiro:pagar_fatura' 0 %}".replace('0', faturaId);
+            });
+        });
+
+        // --- Lógica para o Modal de Nova Compra ---
+        const botoesCompra = document.querySelectorAll('.btn-nova-compra');
+        const formNovaCompra = document.getElementById('formNovaCompra');
+        const labelCompraNomeCartao = document.getElementById('modalCompraNomeCartao');
+        
+        // Define a data de hoje como padrão no input de data
+        const inputDataCompra = document.getElementById('data_compra');
+        inputDataCompra.valueAsDate = new Date();
+
+        botoesCompra.forEach(botao => {
+            botao.addEventListener('click', function() {
+                const faturaId = this.getAttribute('data-fatura-id');
+                const faturaNome = this.getAttribute('data-fatura-nome');
+
+                labelCompraNomeCartao.textContent = faturaNome;
+                formNovaCompra.action = "{% url 'financeiro:adicionar_compra_cartao' 0 %}".replace('0', faturaId);
+            });
         });
     });
 </script>

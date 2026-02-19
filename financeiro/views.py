@@ -10,7 +10,6 @@ from .forms import CategoriaForm, ContaForm, TransacaoForm
 import json
 
 def dashboard_financeiro(request):
-    # --- Lógica de Gravação do Formulário ---
     if request.method == 'POST':
         form = TransacaoForm(request.POST)
         if form.is_valid():
@@ -19,141 +18,141 @@ def dashboard_financeiro(request):
     else:
         form = TransacaoForm()
 
-    # --- Lógica de Exibição (Mesma de antes) ---
     hoje = timezone.now()
     mes_atual = hoje.month
     ano_atual = hoje.year
 
-    total_receitas = Transacao.objects.filter(
-        tipo='RECEITA', 
-        data_vencimento__month=mes_atual, 
-        data_vencimento__year=ano_atual,
-        efetivada=True
-    ).aggregate(total=Sum('valor'))['total'] or 0
-
-    total_despesas = Transacao.objects.filter(
-        tipo='DESPESA', 
-        data_vencimento__month=mes_atual, 
-        data_vencimento__year=ano_atual,
-        efetivada=True
-    ).aggregate(total=Sum('valor'))['total'] or 0
-
+    # ==========================================
+    # 1. SALDOS E FATURAS EM ABERTO
+    # ==========================================
     contas_ativas = Conta.objects.filter(ativa=True)
     saldo_geral = sum([conta.saldo_atual for conta in contas_ativas])
 
-    transacoes_recentes = Transacao.objects.all().select_related(
-        'categoria', 'conta'
-    ).order_by('-data_vencimento', '-id')[:10]
-    
-    # ========================================================
-    # Preparação dos dados para o gráfico de gastos por categoria
-    # ========================================================
-    gastos_por_categoria = Transacao.objects.filter(
-        tipo='DESPESA',
-        data_vencimento__month=mes_atual,
-        data_vencimento__year=ano_atual,
-        efetivada=True
-    ).values('categoria__nome', 'categoria__cor').annotate(total=Sum('valor')).order_by('-total')
+    faturas_abertas = FaturaCartao.objects.filter(paga=False).order_by('data_vencimento')
+    faturas_dados = []
+    total_faturas_pendentes = 0
 
-    labels_grafico = []
-    valores_grafico = []
-    cores_grafico = []
+    for fatura in faturas_abertas:
+        gasto = fatura.compras.aggregate(total=Sum('valor'))['total'] or 0
+        total_faturas_pendentes += float(gasto)
+        faturas_dados.append({
+            'fatura': fatura,
+            'total_gasto': gasto,
+        })
 
-    for gasto in gastos_por_categoria:
-        nome = gasto['categoria__nome'] or 'Outros'
-        # Usa a cor definida no modelo ou um cinzento padrão se estiver vazio
-        cor = gasto['categoria__cor'] or '#95a5a6' 
-        
-        labels_grafico.append(nome)
-        valores_grafico.append(float(gasto['total']))
-        cores_grafico.append(cor)
+    # Previsão Real: Quanto vai sobrar depois de pagar todos os cartões?
+    saldo_projetado = float(saldo_geral) - total_faturas_pendentes
+
+    # ==========================================
+    # 2. RECEITAS E DESPESAS TOTAIS DO MÊS
+    # ==========================================
+    total_receitas = Transacao.objects.filter(
+        tipo='RECEITA', data_vencimento__month=mes_atual, data_vencimento__year=ano_atual, efetivada=True
+    ).aggregate(total=Sum('valor'))['total'] or 0
+
+    # Despesas normais (Excluímos a transação de "Pagamento Fatura" para não contar 2x)
+    despesas_normais = Transacao.objects.filter(
+        tipo='DESPESA', data_vencimento__month=mes_atual, data_vencimento__year=ano_atual, efetivada=True
+    ).exclude(descricao__startswith='Pagamento Fatura').aggregate(total=Sum('valor'))['total'] or 0
     
-    # =========================================================
-    # Dados para o gráfico de evolução mensal (últimos 6 meses)
-    # =========================================================
+    # Compras feitas no cartão este mês
+    despesas_cartao_mes = TransacaoCartao.objects.filter(
+        data_compra__month=mes_atual, data_compra__year=ano_atual
+    ).aggregate(total=Sum('valor'))['total'] or 0
+
+    total_despesas = float(despesas_normais) + float(despesas_cartao_mes)
+
+    # ==========================================
+    # 3. GRÁFICO DE ROSCA (Juntando Conta + Cartão)
+    # ==========================================
+    gastos_transacoes = Transacao.objects.filter(
+        tipo='DESPESA', data_vencimento__month=mes_atual, data_vencimento__year=ano_atual, efetivada=True
+    ).exclude(descricao__startswith='Pagamento Fatura').values('categoria__nome', 'categoria__cor').annotate(total=Sum('valor'))
+
+    gastos_cartao = TransacaoCartao.objects.filter(
+        data_compra__month=mes_atual, data_compra__year=ano_atual
+    ).values('categoria__nome', 'categoria__cor').annotate(total=Sum('valor'))
+
+    categorias_dict = {}
+    
+    # Soma as despesas normais
+    for g in gastos_transacoes:
+        nome = g['categoria__nome'] or 'Outros'
+        cor = g['categoria__cor'] or '#95a5a6'
+        categorias_dict[nome] = {'cor': cor, 'total': float(g['total'])}
+
+    # Soma as despesas do cartão nas mesmas categorias
+    for g in gastos_cartao:
+        nome = g['categoria__nome'] or 'Outros'
+        cor = g['categoria__cor'] or '#95a5a6'
+        if nome in categorias_dict:
+            categorias_dict[nome]['total'] += float(g['total'])
+        else:
+            categorias_dict[nome] = {'cor': cor, 'total': float(g['total'])}
+
+    labels_grafico = list(categorias_dict.keys())
+    valores_grafico = [d['total'] for d in categorias_dict.values()]
+    cores_grafico = [d['cor'] for d in categorias_dict.values()]
+
+    # ==========================================
+    # 4. GRÁFICO DE BARRAS (Últimos 6 meses integrados)
+    # ==========================================
     meses_labels = []
     receitas_data = []
     despesas_data = []
-
     nomes_meses = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
 
-    # Vamos iterar de 5 até 0 (para os últimos 6 meses, incluindo o atual)
     for i in range(5, -1, -1):
         mes_calc = hoje.month - i
         ano_calc = hoje.year
-        
-        # Ajuste matemático para quando recuamos para o ano anterior
         if mes_calc <= 0:
             mes_calc += 12
             ano_calc -= 1
             
         meses_labels.append(f'{nomes_meses[mes_calc]}/{str(ano_calc)[2:]}')
         
-        # Query de Receitas do mês/ano específico
         rec = Transacao.objects.filter(
-            tipo='RECEITA',
-            data_vencimento__month=mes_calc,
-            data_vencimento__year=ano_calc,
-            efetivada=True
+            tipo='RECEITA', data_vencimento__month=mes_calc, data_vencimento__year=ano_calc, efetivada=True
         ).aggregate(total=Sum('valor'))['total'] or 0
         receitas_data.append(float(rec))
         
-        # Query de Despesas do mês/ano específico
-        desp = Transacao.objects.filter(
-            tipo='DESPESA',
-            data_vencimento__month=mes_calc,
-            data_vencimento__year=ano_calc,
-            efetivada=True
+        desp_t = Transacao.objects.filter(
+            tipo='DESPESA', data_vencimento__month=mes_calc, data_vencimento__year=ano_calc, efetivada=True
+        ).exclude(descricao__startswith='Pagamento Fatura').aggregate(total=Sum('valor'))['total'] or 0
+        
+        desp_c = TransacaoCartao.objects.filter(
+            data_compra__month=mes_calc, data_compra__year=ano_calc
         ).aggregate(total=Sum('valor'))['total'] or 0
-        despesas_data.append(float(desp))
-    
-    conta_form = ContaForm()
-    categoria_form = CategoriaForm()
+        
+        despesas_data.append(float(desp_t) + float(desp_c))
+
+    # Transações Recentes
+    transacoes_recentes = Transacao.objects.all().select_related('categoria', 'conta').order_by('-data_vencimento', '-id')[:10]
+
+    # Categorias para o modal de compra no cartão
+    categorias_gerais = CategoriaFinanceira.objects.all()
 
     context = {
         'total_receitas': total_receitas,
         'total_despesas': total_despesas,
         'saldo': saldo_geral,
+        'saldo_projetado': saldo_projetado,
+        'faturas_dados': faturas_dados,
+        'contas_ativas': contas_ativas,
+        'categorias': categorias_gerais,
         'transacoes': transacoes_recentes,
-        
         'form': form,
-        'conta_form': conta_form,
-        'categoria_form': categoria_form,
-        
-        # Gráfico de Gastos por Categoria
+        'conta_form': ContaForm(),
+        'categoria_form': CategoriaForm(),
         'labels_grafico': json.dumps(labels_grafico),
         'valores_grafico': json.dumps(valores_grafico),
         'cores_grafico': json.dumps(cores_grafico),
-        
-        # Gráfico de Evolução Mensal
         'meses_labels': json.dumps(meses_labels),
         'receitas_data': json.dumps(receitas_data),
         'despesas_data': json.dumps(despesas_data),
     }
 
     return render(request, 'financeiro/dashboard.html', context)
-
-def painel_cartoes(request):
-    faturas_abertas = FaturaCartao.objects.filter(paga=False).order_by('data_vencimento')
-    
-    faturas_dados = []
-    for fatura in faturas_abertas:
-        total_gasto = fatura.compras.aggregate(total=Sum('valor'))['total'] or 0
-        faturas_dados.append({
-            'fatura': fatura,
-            'total_gasto': total_gasto,
-            'compras': fatura.compras.all().order_by('-data_compra')
-        })
-
-    contas_ativas = Conta.objects.filter(ativa=True)
-    categorias = CategoriaFinanceira.objects.all() # <-- Novo: para o formulário de compras
-
-    context = {
-        'faturas_dados': faturas_dados,
-        'contas_ativas': contas_ativas,
-        'categorias': categorias, # <-- Novo
-    }
-    return render(request, 'financeiro/cartoes.html', context)
 
 def nova_fatura(request):
     if request.method == 'POST':
@@ -172,7 +171,7 @@ def nova_fatura(request):
             data_vencimento=data_vencimento
         )
         
-    return redirect('financeiro:painel_cartoes')
+    return redirect('financeiro:home')
 
 def pagar_fatura(request, fatura_id):
     if request.method == 'POST':
@@ -197,7 +196,7 @@ def pagar_fatura(request, fatura_id):
             efetivada=True
         )
         
-    return redirect('financeiro:painel_cartoes')
+    return redirect('financeiro:home')
 
 def adicionar_compra_cartao(request, fatura_id):
     if request.method == 'POST':
@@ -220,7 +219,7 @@ def adicionar_compra_cartao(request, fatura_id):
             categoria=categoria
         )
         
-    return redirect('financeiro:painel_cartoes')
+    return redirect('financeiro:home')
 
 def painel_orcamentos(request):
     hoje = timezone.now()

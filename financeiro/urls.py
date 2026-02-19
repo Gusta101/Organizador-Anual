@@ -5,7 +5,6 @@ app_name = 'financeiro'
 
 urlpatterns = [
     path('', views.dashboard_financeiro, name='home'),
-    path('cartoes/', views.painel_cartoes, name='painel_cartoes'),
     path('cartoes/nova-fatura/', views.nova_fatura, name='nova_fatura'),
     path('cartoes/pagar/<int:fatura_id>/', views.pagar_fatura, name='pagar_fatura'),
     path('cartoes/compra/<int:fatura_id>/', views.adicionar_compra_cartao, name='adicionar_compra_cartao'),
