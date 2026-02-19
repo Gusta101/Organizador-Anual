@@ -9,7 +9,7 @@
     --color4: #026f6e; /* Verde água escuro */
     --color5: #1ca39e; /* Turquesa */
     
-    /* Variável Auxiliar (Faltava essa!) */
+    /* Variável Auxiliar */
     --text-color-light: #ffffff;
 
     /* --- Variáveis Semânticas (Modo Claro/Padrão) --- */
@@ -17,30 +17,30 @@
     --bg-body: #ffffff;
     --bg-sidebar: var(--color1);
     --bg-topbar: var(--color2);
-    --bg-footer: var(--color1); /* Footer escuro no modo claro */
+    --bg-footer: var(--color1); 
     
     /* Texto */
-    --text-main: #2c3e50;         /* Texto cinza escuro no fundo branco */
-    --text-sidebar: #ffffff;      /* Texto branco na sidebar escura */
-    --text-footer: #ffffff;       /* Texto branco no footer */
+    --text-main: #2c3e50;        
+    --text-sidebar: #ffffff;      
+    --text-footer: #ffffff;       
     
     /* Dimensões e Bordas */
-    --sidebar-width: 250px;
+    --sidebar-width: 280px; /* Aumentei levemente para melhor leitura no mobile */
     --border-color: #dee2e6;
 }
 
 /* --- TEMA ESCURO / INVERTIDO --- */
 body.dark-mode {
     /* Fundo */
-    --bg-body: var(--color1);     /* O fundo da página vira Roxo Escuro */
-    --bg-sidebar: #f8f9fa;        /* A sidebar inverte para Claro */
-    --bg-topbar: #000000;         /* Topbar vira Preto */
-    --bg-footer: #000000;         /* CORREÇÃO: Footer vira Preto (não segue a sidebar) */
+    --bg-body: var(--color1);     
+    --bg-sidebar: #f8f9fa;        
+    --bg-topbar: #000000;         
+    --bg-footer: #000000;         
 
     /* Texto */
-    --text-main: #ffffff;         /* Texto do corpo vira branco */
-    --text-sidebar: var(--color1);/* Texto da sidebar vira roxo escuro */
-    --text-footer: #ffffff;       /* Texto do footer continua branco */
+    --text-main: #ffffff;        
+    --text-sidebar: var(--color1);
+    --text-footer: #ffffff;       
     
     --border-color: #444;
 }
@@ -63,6 +63,7 @@ body {
     display: flex;
     height: 100vh;
     overflow: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease; /* Transição suave do modo escuro */
 }
 
 /* Força fontes cursivas em inputs */
@@ -83,14 +84,16 @@ a {
 }
 
 .link-button {
-    color: #2563eb; /* Azul padrão de link */
+    color: #2563eb; 
     font-weight: 500;
     transition: all 0.2s ease;
 }
 
-.link-button:hover {
-    color: #1e3a8a;
-    text-decoration: underline;
+@media (hover: hover) {
+    .link-button:hover {
+        color: #1e3a8a;
+        text-decoration: underline;
+    }
 }
 
 /* Inputs para funcionar bem nos dois temas */
@@ -117,9 +120,10 @@ input, textarea, .form-control {
     display: flex;
     flex-direction: column;
     z-index: 1000;
-    transition: transform 0.3s ease-in-out;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.3s ease;
     transform: translateX(-100%);
     border-right: 1px solid var(--border-color);
+    will-change: transform; /* Otimização de performance no mobile */
 }
 
 .sidebar.open {
@@ -128,30 +132,38 @@ input, textarea, .form-control {
 
 .sidebar h2 {
     margin-bottom: 30px;
-    color: var(--text-sidebar); /* Garante cor certa no título */
+    color: var(--text-sidebar); 
 }
 
 .sidebar ul {
     list-style: none;
     padding: 0;
+    flex: 1; /* Permite que os links empurrem o footer da sidebar para baixo */
 }
 
 .sidebar li {
-    margin-bottom: 15px;
+    margin-bottom: 10px;
 }
 
 .sidebar a {
     color: var(--text-sidebar);
     display: block;
-    padding: 10px;
-    border-radius: 5px;
-    transition: 0.3s;
+    padding: 12px 15px; /* Maior área de toque para os dedos */
+    border-radius: 8px;
+    transition: background-color 0.3s, color 0.3s;
 }
 
-.sidebar a:hover {
-    /* No modo Dark (sidebar clara), o hover precisa ser visível */
-    background-color: var(--color5); 
-    color: white; 
+/* Evita que o hover fique "preso" após o toque no celular */
+@media (hover: hover) {
+    .sidebar a:hover {
+        background-color: var(--color5); 
+        color: white; 
+    }
+}
+
+.sidebar a:active {
+    background-color: var(--color4);
+    color: white;
 }
 
 /* --- Área Principal --- */
@@ -162,15 +174,11 @@ input, textarea, .form-control {
     height: 100vh;
     overflow-y: auto;
     overflow-x: hidden; 
-}
-
-.container-fluid {
-    width: 80%;
-    align-self: center;
+    scroll-behavior: smooth;
 }
 
 .content-area {
-    padding: 20px;
+    padding: 20px 0; /* Padding lateral já é cuidado pelo Bootstrap px-3 */
     flex: 1; 
 }
 
@@ -181,7 +189,7 @@ input, textarea, .form-control {
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(0, 0, 0, 0.6); /* Levemente mais escuro */
     z-index: 900;
     opacity: 0;
     pointer-events: none;
@@ -200,12 +208,9 @@ input, textarea, .form-control {
 /* --- Top Bar --- */
 .top-bar {
     background-color: var(--bg-topbar);
-    padding: 15px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    color: var(--text-color-light); /* Sempre branco no topo */
+    /* Removido o display: flex aqui para não quebrar o .row do Bootstrap adicionado no HTML */
+    color: var(--text-color-light); 
+    transition: background-color 0.3s ease;
 }
 
 /* O título e a data no Top Bar devem herdar a cor branca */
@@ -221,7 +226,7 @@ input, textarea, .form-control {
 }
 
 .btn-animated {
-    color: var(--text-color-light); /* Texto branco */
+    color: var(--text-color-light); 
     padding: 10px 15px;
     border: none;
     border-radius: 8px;
@@ -229,37 +234,42 @@ input, textarea, .form-control {
     cursor: pointer;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     transition: all 0.2s ease;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    min-height: 44px; /* Altura mínima amigável para touch */
+    touch-action: manipulation; /* Remove delay de duplo clique no mobile */
 }
 
-.btn-animated:hover {
-    filter: brightness(1.1);
-    transform: scale(0.95);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-    color: white; /* Força branco no hover */
+@media (hover: hover) {
+    .btn-animated:hover {
+        filter: brightness(1.1);
+        transform: scale(0.97); /* Escala mais sutil */
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+        color: white; 
+    }
+    
+    .btn.bg-color5:hover {
+        background-color: var(--color4) !important;
+        color: white !important;
+        border-color: var(--color4);
+    }
 }
 
 .btn-animated:active {
-    transform: scale(0.75);
-}
-
-/* Override para o botão específico */
-.btn.bg-color5:hover {
-    background-color: var(--color4) !important;
-    color: white !important;
-    border-color: var(--color4);
+    transform: scale(0.92);
 }
 
 /* --- Footer --- */
 footer {
-    background-color: var(--bg-footer); /* Usa a nova variável corrigida */
+    background-color: var(--bg-footer); 
     color: var(--text-footer);
     text-align: center;
     padding: 20px;
     width: 100%;
-    border-top: 1px solid rgba(255,255,255,0.1); /* Sutil separação */
+    border-top: 1px solid rgba(255,255,255,0.1); 
+    transition: background-color 0.3s ease;
 }
 
 footer p {
@@ -274,13 +284,15 @@ footer p {
 /* --- Cards --- */
 .summary-card {
     border: 2px solid var(--border-color);
-    background-color: transparent; /* Herda a cor do body no claro e escuro */
+    background-color: transparent; 
     transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
-.summary-card:hover {
-    transform: translateY(-5px);
-    border-color: var(--color5);
+@media (hover: hover) {
+    .summary-card:hover {
+        transform: translateY(-5px);
+        border-color: var(--color5);
+    }
 }
 
 .valor {
@@ -293,6 +305,12 @@ footer p {
 .negativo { color: #e74c3c !important; }
 
 /* --- Tabela --- */
+/* Envolvemos a tabela em um container para scroll horizontal no mobile caso haja muitas colunas */
+.table-responsive {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 .finance-table {
     color: var(--text-main) !important;
     border-color: var(--border-color) !important;
@@ -304,12 +322,14 @@ footer p {
     color: var(--color3);
     border-bottom: 2px solid var(--border-color) !important;
     background-color: transparent !important;
+    white-space: nowrap;
 }
 
 .finance-table td {
     color: var(--text-main) !important;
-    background-color: transparent !important; /* Remove o fundo branco padrão do Bootstrap */
+    background-color: transparent !important; 
     border-color: var(--border-color);
+    vertical-align: middle;
 }
 
 /* --- Badges --- */
@@ -351,11 +371,11 @@ body.dark-mode .btn-close {
 /* =========================================
    6. UTILITÁRIOS
    ========================================= */
-.bg-color1 { background-color: var(--color1); }
-.bg-color2 { background-color: var(--color2); }
-.bg-color3 { background-color: var(--color3); }
-.bg-color4 { background-color: var(--color4); }
-.bg-color5 { background-color: var(--color5); }
+.bg-color1 { background-color: var(--color1) !important; }
+.bg-color2 { background-color: var(--color2) !important; }
+.bg-color3 { background-color: var(--color3) !important; }
+.bg-color4 { background-color: var(--color4) !important; }
+.bg-color5 { background-color: var(--color5) !important; }
 
 .text-color-dark { color: #333; }
 

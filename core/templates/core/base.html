@@ -14,6 +14,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Righteous&display=swap" rel="stylesheet">
 
+    <!-- Ícones -->
+    <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'>
+
     <!-- Styles -->
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     <title>Esse vai ser meu ano! - 2026</title>
@@ -21,96 +24,102 @@
 
 <body>
     <script>
-        if (localStorage.getItem('theme') === 'dark') {
-            document.body.classList.add('dark-mode');
+        if (localStorage.getItem("theme") === "dark") {
+            document.body.classList.add("dark-mode");
         }
     </script>
 
     <!-- Barra Lateral -->
     <nav class="sidebar">
-        <button id="closeBtn" class="btn-animated bg-color4" style="align-self: flex-end;">X</button>
+        <button id='closeBtn' class='btn-animated bg-color4' style='align-self: flex-end;'>
+            <i class='fa-solid fa-xmark fs-5'></i>
+        </button>
         <h2>Planejador 2026</h2>
-        <ul class="p-0">
-            <li><a href="/">🏠 Início</a></li>
-            <li><a href="{% url 'financeiro:home' %}">💰 Financeiro</a></li>
-            <li><a href="#">💼 Trabalho</a></li>
-            <li><a href="{% url 'estudos:home' %}">📚 Estudos</a></li>
-            <li><a href="#">🎨 Hobbies</a></li>
-            <li><a href="#">❤️ Saúde</a></li>
+        <ul class='p-0'>
+            <li><a href='/'><i class='fa-solid fa-house me-2'></i> Início</a></li>
+            <li><a href='{% url "financeiro:home" %}'><i class='fa-solid fa-wallet me-2'></i> Financeiro</a></li>
+            <li><a href='#'><i class='fa-solid fa-briefcase me-2'></i> Trabalho</a></li>
+            <li><a href='{% url "estudos:home" %}'><i class='fa-solid fa-book me-2'></i> Estudos</a></li>
+            <li><a href='#'><i class='fa-solid fa-palette me-2'></i> Hobbies</a></li>
+            <li><a href='#'><i class='fa-solid fa-heart-pulse me-2'></i> Saúde</a></li>
         </ul>
-        <div class="fixed-bottom">
-            <p class="m-2" style="font-size: 15px;">
+        <div class="fixed-bottom position-absolute bottom-0 w-100 text-center">
+            <p class="m-2" style="font-size: 13px;">
                 &copy; 2026 - Desenvolvido por Gustavo Balbino
             </p>
         </div>
     </nav>
     <div id="overlay"></div>
 
-    <!-- Conteúdo Principal -->
-    <main class="main-content">
-        <!-- Info Topo -->
-        <header class="top-bar row shadow d-flex justify-content-between p-3 mb-0">
-            <div class="col-md-4">
-                <button id="openBtn" class="btn-animated bg-color4">☰ Abrir Menu</button>
-            </div>
-            <div class="col-md-4 text-center">
-                <h2 id="current-screen">{% block title %}Dashboard{% endblock %}</h2>
-            </div>
-            <div class="col-md-4 text-end">
-                <button id="themeToggle" class="btn-animated bg-color5" title="Mudar Tema">🌗 Tema</button>
-            </div>
+    <main class='main-content d-flex flex-column'>
+        <header class='top-bar shadow p-3 mb-0 m-0 d-flex justify-content-between align-items-center'>
+            <button id='openBtn' class='btn-animated bg-color4'>
+                <i class='fa-solid fa-bars fs-5'></i>
+                <span class='d-none d-md-inline ms-2'>Menu</span>
+            </button>
+
+            <h2 id='current-screen' class='h4 m-0 text-center flex-grow-1 mx-2 text-truncate'>
+                {% block title %}Dashboard{% endblock %}
+            </h2>
+
+            <button id='themeToggle' class='btn-animated bg-color5' title='Mudar Tema'>
+                <i class='fa-solid fa-circle-half-stroke fs-5'></i>
+                <span class='d-none d-md-inline ms-2'>Tema</span>
+            </button>
         </header>
-        <span class="m-3 p-2" id="current-date"></span>
-        <div class="content-area">
-            {% block content %}
-            {% endblock %}
+
+        <div class='container-fluid px-3 px-md-4 d-flex flex-column flex-grow-1 text-start'>
+            <span class='d-block my-3 text-muted fw-bold' id='current-date'></span>
+            <div class='content-area flex-grow-1'>
+                {% block content %}
+                {% endblock %}
+            </div>
         </div>
 
-        <!-- Footer -->
-        <footer class="py-3 mt-4 border-top">
-            <p class="mb-0">&copy; 2026 - Desenvolvido por Gustavo Balbino</p>
+        <footer class='py-3 mt-auto border-top text-center'>
+            <p class='mb-0 small'>&copy; 2026 - Desenvolvido por Gustavo Balbino</p>
         </footer>
     </main>
 
     <!-- Scripts -->
     <script>
         // Script para abrir e fechar a barra lateral
-        const sidebar = document.querySelector('.sidebar');
-        const closeBtn = document.getElementById('closeBtn');
-        const openBtn = document.getElementById('openBtn');
-        const overlay = document.getElementById('overlay');
+        const sidebar = document.querySelector(".sidebar");
+        const closeBtn = document.getElementById("closeBtn");
+        const openBtn = document.getElementById("openBtn");
+        const overlay = document.getElementById("overlay");
 
         function toggleMenu() {
-            sidebar.classList.toggle('open');
-            overlay.classList.toggle('active');
+            sidebar.classList.toggle("open");
+            overlay.classList.toggle("active");
         }
 
-        openBtn.addEventListener('click', toggleMenu);
-        closeBtn.addEventListener('click', toggleMenu);
-        overlay.addEventListener('click', toggleMenu);
+        openBtn.addEventListener("click", toggleMenu);
+        closeBtn.addEventListener("click", toggleMenu);
+        overlay.addEventListener("click", toggleMenu);
     </script>
 
     <script>
         // Script para mostrar a data atual em português do Brasil
         const now = new Date();
-        const day = String(now.getDate()).padStart(2, '0');
-        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, "0");
+        const month = String(now.getMonth() + 1).padStart(2, "0");
 
-        document.getElementById('current-date').innerText = day + '/' + month;
+        document.getElementById("current-date").innerText = day + "/" + month;
     </script>
 
     <script>
         // Script para alternar o tema (dark/light) no clique do botão
-        const themeBtn = document.getElementById('themeToggle');
-        
-        themeBtn.addEventListener('click', () => {
-            document.body.classList.toggle('dark-mode');
+        const themeBtn = document.getElementById("themeToggle");
+
+        themeBtn.addEventListener("click", () => {
+            document.body.classList.toggle("dark-mode");
 
             // Salva a escolha no navegador (Local Storage)
-            if (document.body.classList.contains('dark-mode')) {
-                localStorage.setItem('theme', 'dark');
+            if (document.body.classList.contains("dark-mode")) {
+                localStorage.setItem("theme", "dark");
             } else {
-                localStorage.setItem('theme', 'light');
+                localStorage.setItem("theme", "light");
             }
         });
     </script>
