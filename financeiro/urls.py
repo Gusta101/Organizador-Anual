@@ -16,4 +16,5 @@ urlpatterns = [
     path('conta/nova/', views.nova_conta, name='nova_conta'),
     path('categoria/nova/', views.nova_categoria, name='nova_categoria'),
     path('cron/aportes-automaticos/', views.cron_processar_aportes, name='cron_aportes'),
+    path('api/detalhes-dia/', views.detalhes_dia_api, name='detalhes_dia_api'),
 ]

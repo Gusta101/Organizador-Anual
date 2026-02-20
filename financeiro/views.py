@@ -216,6 +216,32 @@ def dashboard_financeiro(request):
 
     # Categorias para o modal de compra no cartão
     categorias_gerais = CategoriaFinanceira.objects.all()
+    
+    # ==========================================
+    # 6. DADOS PARA O CALENDÁRIO HEATMAP
+    # ==========================================
+    gastos_diarios = {}
+    
+    # Busca despesas normais (usa a data do vencimento para posicionar no calendário)
+    despesas_cal = Transacao.objects.filter(
+        tipo='DESPESA', data_vencimento__month=mes_selecionado, data_vencimento__year=ano_selecionado
+    ).exclude(descricao__startswith='Pagamento Fatura').values('data_vencimento').annotate(total=Sum('valor'))
+    
+    for d in despesas_cal:
+        dia = d['data_vencimento'].day
+        gastos_diarios[dia] = gastos_diarios.get(dia, 0) + float(d['total'])
+
+    # Busca despesas do cartão (usa a data que você passou o cartão)
+    cartao_cal = TransacaoCartao.objects.filter(
+        data_compra__month=mes_selecionado, data_compra__year=ano_selecionado
+    ).values('data_compra').annotate(total=Sum('valor'))
+    
+    for c in cartao_cal:
+        dia = c['data_compra'].day
+        gastos_diarios[dia] = gastos_diarios.get(dia, 0) + float(c['total'])
+
+    # Descobre qual foi o dia que você mais gastou para calibrar a cor do calendário
+    maior_gasto_diario = max(gastos_diarios.values()) if gastos_diarios else 0
 
     context = {
         'mes_selecionado': mes_selecionado,
@@ -246,6 +272,9 @@ def dashboard_financeiro(request):
         'meses_labels': json.dumps(meses_labels),
         'receitas_data': json.dumps(receitas_data),
         'despesas_data': json.dumps(despesas_data),
+        
+        'gastos_diarios': gastos_diarios,
+        'maior_gasto_diario': maior_gasto_diario,
     }
 
     return render(request, 'financeiro/dashboard.html', context)
@@ -567,4 +596,65 @@ def cron_processar_aportes(request):
         'status': 'Sucesso',
         'mes_referencia': mes_ano_atual,
         'aportes_gerados': aportes_gerados
+    })
+    
+def detalhes_dia_api(request):
+    ano = request.GET.get('ano')
+    mes = request.GET.get('mes')
+    dia = request.GET.get('dia')
+
+    if not (ano and mes and dia):
+        return JsonResponse({'error': 'Parâmetros incompletos'}, status=400)
+
+    data_alvo = date(int(ano), int(mes), int(dia))
+
+    # 1. Transações normais (Receitas e Despesas)
+    transacoes_dia = Transacao.objects.filter(
+        data_vencimento=data_alvo
+    ).exclude(descricao__startswith='Pagamento Fatura')
+
+    # 2. Compras no Cartão de Crédito
+    cartoes_dia = TransacaoCartao.objects.filter(
+        data_compra=data_alvo
+    )
+
+    lista_transacoes = []
+    
+    for t in transacoes_dia:
+        lista_transacoes.append({
+            'descricao': t.descricao,
+            'valor': float(t.valor),
+            'tipo': t.tipo, # 'RECEITA' ou 'DESPESA'
+            'categoria': t.categoria.nome if t.categoria else 'Outros',
+            'cor': t.categoria.cor if t.categoria else '#95a5a6',
+            'conta': t.conta.nome
+        })
+        
+    for c in cartoes_dia:
+        lista_transacoes.append({
+            'descricao': f"{c.descricao} (Cartão)",
+            'valor': float(c.valor),
+            'tipo': 'DESPESA',
+            'categoria': c.categoria.nome if c.categoria else 'Outros',
+            'cor': c.categoria.cor if c.categoria else '#95a5a6',
+            'conta': c.fatura.nome_cartao
+        })
+
+    # 3. Agrupar apenas as DESPESAS para o gráfico de pizza
+    categorias_dict = {}
+    for t in lista_transacoes:
+        if t['tipo'] == 'DESPESA':
+            cat = t['categoria']
+            if cat not in categorias_dict:
+                categorias_dict[cat] = {'cor': t['cor'], 'total': 0}
+            categorias_dict[cat]['total'] += t['valor']
+
+    return JsonResponse({
+        'data_formatada': data_alvo.strftime('%d/%m/%Y'),
+        'transacoes': lista_transacoes,
+        'grafico': {
+            'labels': list(categorias_dict.keys()),
+            'valores': [d['total'] for d in categorias_dict.values()],
+            'cores': [d['cor'] for d in categorias_dict.values()]
+        }
     })

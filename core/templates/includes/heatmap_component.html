@@ -64,14 +64,20 @@
         {% endfor %}
 
         {% for item in grid %}
-            <div class="calendar-day {% if item.is_padding %}is-padding{% endif %}" 
-                 style="background-color: {{ item.cor }};"
-                 {% if not item.is_padding %}
-                    title="Dia {{ item.dia }}: {{ item.valor }}%"
+            <div class="calendar-day {% if item.is_padding %}is-padding{% endif %} {% if is_financeiro and not item.is_padding %}finance-day{% endif %}" 
+                 style="background-color: {{ item.cor }}; {% if is_financeiro and not item.is_padding %}cursor: pointer;{% endif %}"
+                 
+                 {% if is_financeiro and not item.is_padding %}
+                     data-dia="{{ item.dia }}" data-mes="{{ mes_num }}" data-ano="{{ ano }}"
+                 {% endif %}
+
+                 {% if not item.is_padding and item.tem_dado %}
+                    title="Dia {{ item.dia }}: {% if is_financeiro %}{{ item.valor }}{% else %}{{ item.valor }}%{% endif %}"
+                 {% elif not item.is_padding and not item.tem_dado %}
+                    title="Dia {{ item.dia }}: Sem registos"
                  {% endif %}>
                  
                 {{ item.dia }}
-                
             </div>
         {% endfor %}
     </div>

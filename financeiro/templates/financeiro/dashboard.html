@@ -1,4 +1,5 @@
 {% extends 'core/base.html' %}
+{% load heatmap_tools %}
 
 {% block title %}Resumo Financeiro{% endblock %}
 
@@ -17,26 +18,29 @@
 
     <!-- Botões função -->
     <div class='d-flex justify-content-between align-items-center mb-4'>
-        
+
         <div class="d-flex align-items-center gap-3">
-            <a href="?mes={{ mes_anterior }}&ano={{ ano_anterior }}" class="btn btn-sm btn-outline-secondary" style="border-radius: 30%;">
+            <a href="?mes={{ mes_anterior }}&ano={{ ano_anterior }}" class="btn btn-sm btn-outline-secondary"
+                style="border-radius: 30%;">
                 <i class="fas fa-chevron-left"></i>
             </a>
-            
+
             <h3 class='m-0 text-center' style='font-family: "Caveat", cursive; min-width: 150px;'>
                 {{ nome_mes_selecionado }} {{ ano_selecionado }}
             </h3>
-            
-            <a href="?mes={{ mes_seguinte }}&ano={{ ano_seguinte }}" class="btn btn-sm btn-outline-secondary" style="border-radius: 30%;">
+
+            <a href="?mes={{ mes_seguinte }}&ano={{ ano_seguinte }}" class="btn btn-sm btn-outline-secondary"
+                style="border-radius: 30%;">
                 <i class="fas fa-chevron-right"></i>
             </a>
-            
+
             {% if nome_mes_selecionado != "Fevereiro" or ano_selecionado != 2026 %}
-                <a href="{% url 'financeiro:home' %}" class="btn btn-sm btn-link text-muted ms-2">Voltar p/ Hoje</a>
+            <a href="{% url 'financeiro:home' %}" class="btn btn-sm btn-link text-muted ms-2">Voltar p/ Hoje</a>
             {% endif %}
         </div>
 
-        <button type='button' class='btn btn-animated bg-color5' data-bs-toggle='modal' data-bs-target='#modalTransacao'>
+        <button type='button' class='btn btn-animated bg-color5' data-bs-toggle='modal'
+            data-bs-target='#modalTransacao'>
             + Nova Transação
         </button>
     </div>
@@ -90,9 +94,10 @@
                 <div class='summary-card p-3 rounded position-relative' style='border-left: 4px solid var(--color3);'>
 
                     {% if item.is_futura %}
-                        <span class='badge bg-secondary position-absolute top-0 end-0 mt-2 me-2'>
-                            <i class="fa-solid fa-exclamation me-2"></i>Próxima Fatura<i class="fa-solid fa-exclamation ms-2"></i>
-                        </span>
+                    <span class='badge bg-secondary position-absolute top-0 end-0 mt-2 me-2'>
+                        <i class="fa-solid fa-exclamation me-2"></i>Próxima Fatura<i
+                            class="fa-solid fa-exclamation ms-2"></i>
+                    </span>
                     {% endif %}
 
                     <h5 style='font-family: "Caveat", cursive; color: var(--color3);' class='mb-0'>
@@ -128,16 +133,18 @@
         </div>
     </div>
 
-    <!-- Cards dashboard -->
+    <!-- Dashboard Mensal -->
+     <h4 class="mb-3 mt-5">Análise Mensal</h4>
+
     <div class='row mb-4 g-4'>
         <div class='col-md-6 col-lg-5'>
             <div class='summary-card p-4 rounded h-100 d-flex flex-column align-items-center'>
                 <h4 class='mb-3 text-center' style='font-family: "Caveat", cursive; color: var(--color3);'>
-                    Despesas por Categoria
+                    Despesas por Categoria (Mês)
                 </h4>
 
                 <div style='position: relative; height: 250px; width: 100%;'>
-                    <canvas id='graficoCategorias'></canvas>
+                    <canvas id='graficoCategoriasMensal'></canvas>
                 </div>
 
                 {% if total_despesas == 0 %}
@@ -154,6 +161,59 @@
 
                 <div style='position: relative; height: 250px; width: 100%;'>
                     <canvas id='graficoFluxo'></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Diário -->
+    <h4 class='mb-3 mt-5'>Análise Diária</h4>
+
+    <div class='row mb-4 g-4'>
+
+        <div class='col-md-4'>
+            <div class='summary-card p-4 rounded h-100 d-flex flex-column align-items-center justify-content-center'>
+                <h4 class='mb-3 text-center' style='font-family: "Caveat", cursive; color: var(--color3);'>
+                    Mapa de Gastos
+                </h4>
+                {% render_calendario_gastos mes_selecionado ano_selecionado gastos_diarios maior_gasto_diario %}
+                <p class='text-muted small mt-3 text-center'>Clique num dia para ver os detalhes.</p>
+            </div>
+        </div>
+
+        <div class='col-md-4'>
+            <div class='summary-card p-4 rounded h-100 d-flex flex-column align-items-center'>
+                <h4 id="titulo-grafico-diario" class='mb-3 text-center'
+                    style='font-family: "Caveat", cursive; color: var(--color3);'>
+                    Despesas do Dia
+                </h4>
+
+                <div style='position: relative; height: 250px; width: 100%;'>
+                    <canvas id='graficoCategoriasDiario' style="display: none;"></canvas>
+                </div>
+
+                <p id="msg-selecione-dia" class='text-muted mt-5 text-center'>👈 Selecione um dia no calendário ao lado.
+                </p>
+                <p id="msg-sem-dados-diario" class='text-muted mt-5 text-center' style="display: none;">Nenhuma despesa
+                    registada neste dia.</p>
+            </div>
+        </div>
+
+        <div class='col-md-4'>
+            <div class='summary-card p-4 rounded h-100 d-flex flex-column'>
+                <h4 id="titulo-tabela-dia" class='mb-3 text-center'
+                    style='font-family: "Caveat", cursive; color: var(--color5);'>
+                    Transações do Dia
+                </h4>
+
+                <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                    <table class="table table-sm align-middle" style="font-size: 0.9rem;">
+                        <tbody id="tabela-dia-body">
+                            <tr>
+                                <td class="text-center text-muted py-5">Nenhum dia selecionado.</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -234,13 +294,14 @@
     <div class='modal-dialog modal-dialog-centered'>
         <div class='modal-content custom-modal-content'>
             <div class='modal-header border-bottom-0'>
-                <h5 class='modal-title' style='font-family: "Caveat", cursive; color: var(--color5);'>Registrar Movimentação</h5>
+                <h5 class='modal-title' style='font-family: "Caveat", cursive; color: var(--color5);'>Registrar
+                    Movimentação</h5>
                 <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
             </div>
             <div class='modal-body'>
                 <form method='POST' action=''>
                     {% csrf_token %}
-                    
+
                     <div class='mb-3'>
                         {{ form.descricao.label_tag }} {{ form.descricao }}
                     </div>
@@ -253,7 +314,8 @@
                         <div class='col-6 pt-4'>
                             <div class='form-check'>
                                 {{ form.efetivada }}
-                                <label class='form-check-label fw-bold' for='{{ form.efetivada.id_for_label }}'>Já foi pago/recebido?</label>
+                                <label class='form-check-label fw-bold' for='{{ form.efetivada.id_for_label }}'>Já foi
+                                    pago/recebido?</label>
                             </div>
                         </div>
                     </div>
@@ -262,20 +324,23 @@
                         <div class='col-6'>{{ form.categoria.label_tag }} {{ form.categoria }}</div>
                     </div>
 
-                    <div class='p-3 mb-4 rounded' style='background-color: var(--bg-body); border: 1px dashed var(--color5);'>
+                    <div class='p-3 mb-4 rounded'
+                        style='background-color: var(--bg-body); border: 1px dashed var(--color5);'>
                         <div class='form-check mb-2'>
                             {{ form.recorrente }}
                             <label class='form-check-label text-color-dark fw-bold' for='check_recorrente'>
-                                <i class="fa-solid fa-arrow-rotate-left me-2"></i>Repetir nos próximos meses? (Recorrência/Parcelamento)
+                                <i class="fa-solid fa-arrow-rotate-left me-2"></i>Repetir nos próximos meses?
+                                (Recorrência/Parcelamento)
                             </label>
                         </div>
                         <div id='div_parcelas' class='mt-2' style='display: none;'>
                             {{ form.parcelas.label_tag }}
                             {{ form.parcelas }}
-                            <small class='text-muted'>Serão geradas transações pendentes para os meses seguintes automaticamente.</small>
+                            <small class='text-muted'>Serão geradas transações pendentes para os meses seguintes
+                                automaticamente.</small>
                         </div>
                     </div>
-                    
+
                     <div class='text-end mt-4'>
                         <button type='submit' class='btn btn-animated bg-color5'>Salvar Transação</button>
                     </div>
@@ -330,22 +395,25 @@
     <div class='modal-dialog modal-dialog-centered'>
         <div class='modal-content custom-modal-content'>
             <div class='modal-header border-bottom-0'>
-                <h5 class='modal-title' style='font-family: "Caveat", cursive;'>Nova Compra - <span id='modalCompraNomeCartao'></span></h5>
+                <h5 class='modal-title' style='font-family: "Caveat", cursive;'>Nova Compra - <span
+                        id='modalCompraNomeCartao'></span></h5>
                 <button type='button' class='btn-close' data-bs-dismiss='modal' aria-label='Close'></button>
             </div>
             <div class='modal-body'>
                 <form id='formNovaCompra' method='POST' action=''>
                     {% csrf_token %}
-                    
+
                     <div class='mb-3'>
                         <label for='descricao' class='form-label'>Descrição da Compra</label>
-                        <input type='text' class='form-control' id='descricao' name='descricao' required placeholder='Ex: Smartphone, Assinatura Spotify...'>
+                        <input type='text' class='form-control' id='descricao' name='descricao' required
+                            placeholder='Ex: Smartphone, Assinatura Spotify...'>
                     </div>
-                    
+
                     <div class='row mb-3'>
                         <div class='col-6'>
                             <label for='valor_compra' class='form-label'>Valor (da Parcela)</label>
-                            <input type='number' class='form-control' id='valor_compra' name='valor' step='0.01' required placeholder='Ex: 50.00'>
+                            <input type='number' class='form-control' id='valor_compra' name='valor' step='0.01'
+                                required placeholder='Ex: 50.00'>
                         </div>
                         <div class='col-6'>
                             <label for='data_compra' class='form-label'>Data da Compra</label>
@@ -358,25 +426,30 @@
                         <select class='form-control' id='categoria' name='categoria'>
                             <option value=''>Sem categoria...</option>
                             {% for cat in categorias %}
-                                <option value='{{ cat.id }}'>{{ cat.nome }}</option>
+                            <option value='{{ cat.id }}'>{{ cat.nome }}</option>
                             {% endfor %}
                         </select>
                     </div>
 
-                    <div class='p-3 mb-4 rounded' style='background-color: var(--bg-body); border: 1px dashed var(--color4);'>
+                    <div class='p-3 mb-4 rounded'
+                        style='background-color: var(--bg-body); border: 1px dashed var(--color4);'>
                         <div class='form-check mb-2'>
-                            <input type='checkbox' class='form-check-input' id='check_recorrente_cartao' name='recorrente_cartao'>
+                            <input type='checkbox' class='form-check-input' id='check_recorrente_cartao'
+                                name='recorrente_cartao'>
                             <label class='form-check-label text-color-dark fw-bold' for='check_recorrente_cartao'>
-                                <i class="fa-jelly fa-regular fa-credit-card me-2"></i>Compra Parcelada ou Assinatura Mensal?
+                                <i class="fa-jelly fa-regular fa-credit-card me-2"></i>Compra Parcelada ou Assinatura
+                                Mensal?
                             </label>
                         </div>
                         <div id='div_parcelas_cartao' class='mt-2' style='display: none;'>
                             <label for='parcelas_cartao' class='form-label'>Em quantas vezes? (Meses)</label>
-                            <input type='number' class='form-control' id='parcelas_cartao' name='parcelas_cartao' min='2' value='2'>
-                            <small class='text-muted'>As faturas dos próximos meses serão criadas automaticamente se não existirem.</small>
+                            <input type='number' class='form-control' id='parcelas_cartao' name='parcelas_cartao'
+                                min='2' value='2'>
+                            <small class='text-muted'>As faturas dos próximos meses serão criadas automaticamente se não
+                                existirem.</small>
                         </div>
                     </div>
-                    
+
                     <div class='text-end'>
                         <button type='submit' class='btn btn-animated bg-color5'>Guardar Compra</button>
                     </div>
@@ -489,62 +562,130 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        
-        // 1. ESPERA AS FONTES CARREGAREM ANTES DE DESENHAR O GRÁFICO
-        document.fonts.ready.then(function() {
-            
-            // 2. CONFIGURAÇÃO GLOBAL DO CHART.JS
+
+        document.fonts.ready.then(function () {
+
             // Define a fonte e a cor para todos os textos de todos os gráficos
             Chart.defaults.font.family = '\'Balsamiq Sans\', cursive';
             Chart.defaults.color = getComputedStyle(document.body).getPropertyValue('--text-main').trim() || '#333';
 
             // ==========================================
-            // GRÁFICO DE ROSCA (DESPESAS POR CATEGORIA)
+            // 1. GRÁFICO DE ROSCA (VISÃO MENSAL ESTÁTICA)
             // ==========================================
-            const labels = JSON.parse('{{ labels_grafico|safe }}');
-            const valores = JSON.parse('{{ valores_grafico|safe }}');
-            const cores = JSON.parse('{{ cores_grafico|safe }}');
+            const labelsMensais = JSON.parse('{{ labels_grafico|safe }}');
+            const valoresMensais = JSON.parse('{{ valores_grafico|safe }}');
+            const coresMensais = JSON.parse('{{ cores_grafico|safe }}');
 
-            // Só renderiza o gráfico se houver dados
-            if (valores.length > 0) {
-                const ctx = document.getElementById('graficoCategorias').getContext('2d');
-
-                new Chart(ctx, {
+            if (valoresMensais.length > 0) {
+                const ctxMensal = document.getElementById('graficoCategoriasMensal').getContext('2d');
+                new Chart(ctxMensal, {
                     type: 'doughnut',
                     data: {
-                        labels: labels,
+                        labels: labelsMensais,
                         datasets: [{
-                            data: valores,
-                            backgroundColor: cores,
+                            data: valoresMensais,
+                            backgroundColor: coresMensais,
                             borderWidth: 2,
-                            borderColor: getComputedStyle(document.body).getPropertyValue('--bg-body').trim() 
+                            borderColor: getComputedStyle(document.body).getPropertyValue('--bg-body').trim()
                         }]
                     },
                     options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                            legend: {
-                                position: 'right',
-                                labels: { size: 14 } // Fonte e cor já estão no defaults
-                            },
-                            tooltip: {
-                                callbacks: {
-                                    label: function (context) {
-                                        let label = context.label || '';
-                                        if (label) { label += ': '; }
-                                        if (context.parsed !== null) { label += 'R$ ' + context.parsed.toFixed(2); }
-                                        return label;
-                                    }
-                                }
-                            }
-                        }
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { position: 'right', labels: { size: 14 } } }
                     }
                 });
             }
 
             // ==========================================
-            // GRÁFICO DE BARRAS (FLUXO DE CAIXA)
+            // 2. GRÁFICO DE ROSCA (VISÃO DIÁRIA DINÂMICA)
+            // ==========================================
+            const ctxDiario = document.getElementById('graficoCategoriasDiario').getContext('2d');
+            // Inicializa vazio
+            let chartDiario = new Chart(ctxDiario, {
+                type: 'doughnut',
+                data: { labels: [], datasets: [{ data: [], backgroundColor: [], borderWidth: 2 }] },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'bottom', labels: { size: 12 } } }
+                }
+            });
+
+            // ==========================================
+            // 3. LÓGICA DE INTERAÇÃO DO CALENDÁRIO
+            // ==========================================
+            const tituloGraficoDiario = document.getElementById('titulo-grafico-diario');
+            const msgSelecione = document.getElementById('msg-selecione-dia');
+            const msgSemDados = document.getElementById('msg-sem-dados-diario');
+            const canvasDiario = document.getElementById('graficoCategoriasDiario');
+
+            const tbodyTabela = document.getElementById('tabela-dia-body');
+            const tituloTabela = document.getElementById('titulo-tabela-dia');
+
+            document.querySelectorAll('.finance-day').forEach(dayDiv => {
+                dayDiv.addEventListener('click', function () {
+                    const dia = this.getAttribute('data-dia');
+                    const mes = this.getAttribute('data-mes');
+                    const ano = this.getAttribute('data-ano');
+
+                    if (!dia) return; // Ignora os dias em branco do calendário
+
+                    // Destaca visualmente o dia clicado
+                    document.querySelectorAll('.finance-day').forEach(d => d.style.border = 'none');
+                    this.style.border = '2px solid var(--text-main)';
+
+                    // Chama a API interna para buscar os dados do dia
+                    fetch(`/financeiro/api/detalhes-dia/?dia=${dia}&mes=${mes}&ano=${ano}`)
+                        .then(response => response.json())
+                        .then(data => {
+
+                            // Atualiza Títulos
+                            tituloGraficoDiario.innerText = `Despesas: ${data.data_formatada}`;
+                            tituloTabela.innerText = `Lançamentos: ${data.data_formatada}`;
+
+                            msgSelecione.style.display = 'none'; // Esconde a mensagem inicial
+
+                            // Atualiza o Gráfico de Pizza Diário
+                            if (data.grafico.valores.length === 0) {
+                                msgSemDados.style.display = 'block';
+                                canvasDiario.style.display = 'none';
+                            } else {
+                                msgSemDados.style.display = 'none';
+                                canvasDiario.style.display = 'block';
+                                chartDiario.data.labels = data.grafico.labels;
+                                chartDiario.data.datasets[0].data = data.grafico.valores;
+                                chartDiario.data.datasets[0].backgroundColor = data.grafico.cores;
+                                chartDiario.data.datasets[0].borderColor = getComputedStyle(document.body).getPropertyValue('--bg-body').trim();
+                                chartDiario.update();
+                            }
+
+                            // Atualiza a Tabela do Dia
+                            tbodyTabela.innerHTML = '';
+                            if (data.transacoes.length === 0) {
+                                tbodyTabela.innerHTML = '<tr><td class="text-center text-muted py-4">Nenhum movimento neste dia.</td></tr>';
+                            } else {
+                                data.transacoes.forEach(t => {
+                                    const corTexto = t.tipo === 'RECEITA' ? 'text-success' : 'text-danger';
+                                    const sinal = t.tipo === 'RECEITA' ? '+' : '-';
+                                    tbodyTabela.innerHTML += `
+                                    <tr>
+                                        <td class="py-2">
+                                            <div style="width:10px; height:10px; border-radius:50%; background-color:${t.cor}; display:inline-block; margin-right:6px;"></div>
+                                            <strong>${t.descricao}</strong><br>
+                                            <span class="text-muted" style="font-size:0.75rem;">${t.conta}</span>
+                                        </td>
+                                        <td class="text-end fw-bold ${corTexto} py-2">
+                                            ${sinal} R$ ${t.valor.toFixed(2)}
+                                        </td>
+                                    </tr>
+                                `;
+                                });
+                            }
+                        });
+                });
+            });
+
+            // ==========================================
+            // 4. GRÁFICO DE BARRAS (FLUXO DE CAIXA)
             // ==========================================
             const labelsFluxo = JSON.parse('{{ meses_labels|safe }}');
             const dadosReceitas = JSON.parse('{{ receitas_data|safe }}');
@@ -595,29 +736,29 @@
                     scales: {
                         y: {
                             beginAtZero: true,
-                            grid: { color: corLinhaGrid } 
+                            grid: { color: corLinhaGrid }
                         },
                         x: {
                             ticks: { size: 13 },
-                            grid: { display: false } 
+                            grid: { display: false }
                         }
                     }
                 }
             });
-            
-        }); // Fim da espera pelas fontes
+
+        });
     });
 </script>
 
 <!-- Modals transação -->
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         const checkRecorrente = document.getElementById('check_recorrente');
         const divParcelas = document.getElementById('div_parcelas');
-        
-        if(checkRecorrente && divParcelas) {
-            checkRecorrente.addEventListener('change', function() {
-                if(this.checked) {
+
+        if (checkRecorrente && divParcelas) {
+            checkRecorrente.addEventListener('change', function () {
+                if (this.checked) {
                     divParcelas.style.display = 'block';
                 } else {
                     divParcelas.style.display = 'none';
@@ -670,16 +811,16 @@
 </script>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
         // ... (o seu código JavaScript anterior continua aqui) ...
 
         // Lógica para mostrar/esconder o campo de parcelas no Cartão
         const checkRecorrenteCartao = document.getElementById('check_recorrente_cartao');
         const divParcelasCartao = document.getElementById('div_parcelas_cartao');
-        
-        if(checkRecorrenteCartao && divParcelasCartao) {
-            checkRecorrenteCartao.addEventListener('change', function() {
-                if(this.checked) {
+
+        if (checkRecorrenteCartao && divParcelasCartao) {
+            checkRecorrenteCartao.addEventListener('change', function () {
+                if (this.checked) {
                     divParcelasCartao.style.display = 'block';
                 } else {
                     divParcelasCartao.style.display = 'none';

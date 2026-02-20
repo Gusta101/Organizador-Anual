@@ -72,3 +72,55 @@ def render_heatmap(queryset, date_field='data', value_field='percentual'):
         'ano': ano,
         'dias_semana': DIAS_SEMANA_PT
     }
+
+@register.inclusion_tag('includes/heatmap_component.html')
+def render_calendario_gastos(mes, ano, gastos_diarios_dict, max_valor):
+    MESES_PT = {
+        1: 'Janeiro', 2: 'Fevereiro', 3: 'Março', 4: 'Abril',
+        5: 'Maio', 6: 'Junho', 7: 'Julho', 8: 'Agosto',
+        9: 'Setembro', 10: 'Outubro', 11: 'Novembro', 12: 'Dezembro'
+    }
+    DIAS_SEMANA_PT = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb']
+
+    dia_semana_inicio, num_dias = calendar.monthrange(ano, mes)
+    dias_offset = (dia_semana_inicio + 1) % 7
+
+    grid = []
+
+    # 1. Adiciona os dias vazios do mês anterior
+    for _ in range(dias_offset):
+        grid.append({'dia': '', 'cor': 'transparent', 'is_padding': True})
+
+    # 2. Adiciona os dias reais do mês
+    for dia in range(1, num_dias + 1):
+        valor = gastos_diarios_dict.get(dia, 0)
+        
+        if valor > 0:
+            tem_dado = True
+            # Calcula a intensidade da cor vermelha baseada no maior gasto do mês
+            # Usamos min/max para garantir que o alpha fica entre 0.2 (claro) e 1.0 (forte)
+            intensidade = valor / max_valor if max_valor > 0 else 0
+            alpha = max(0.2, min(1.0, intensidade))
+            
+            # Cor vermelha (rgb: 231, 76, 60 - a mesma do seu gráfico de barras)
+            cor = f"rgba(231, 76, 60, {alpha})"
+        else:
+            tem_dado = False
+            cor = "#ebedf0" # Dia sem gastos (cinza claro)
+
+        grid.append({
+            'dia': dia,
+            'valor': f"R$ {valor:,.2f}".replace(',', '_').replace('.', ',').replace('_', '.'), # Formata R$ 1.000,00
+            'cor': cor,
+            'tem_dado': tem_dado,
+            'is_padding': False
+        })
+
+    return {
+        'grid': grid,
+        'mes_nome': MESES_PT[mes],
+        'mes_num': mes,
+        'ano': ano,
+        'dias_semana': DIAS_SEMANA_PT,
+        'is_financeiro': True # Uma flag para o HTML saber se coloca o símbolo de % ou de R$
+    }
