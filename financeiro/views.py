@@ -1,7 +1,8 @@
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.http import JsonResponse
 from django.db.models import Sum, Q
 from django.utils import timezone
+from django.contrib import messages
 
 from objetivos.models import ObjetivoMacro
 from .models import OrcamentoMensal, RegraAporteAutomatico, Transacao, Conta, FaturaCartao, CategoriaFinanceira, TransacaoCartao
@@ -9,6 +10,8 @@ from .models import OrcamentoMensal, RegraAporteAutomatico, Transacao, Conta, Fa
 import json
 from datetime import date
 import calendar
+
+from .pluggy_service import sincronizar_conta_corrente, sincronizar_cartao_credito
 
 def adicionar_meses(data_original, meses):
     if hasattr(data_original, 'date') and callable(data_original.date):
@@ -41,78 +44,59 @@ def dashboard_financeiro(request):
     
     nomes_meses = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
     nome_mes_selecionado = nomes_meses[mes_selecionado]
+    nome_mes_seguinte = nomes_meses[mes_seguinte]
 
     # ==========================================
-    # 1. SALDO ATUAL E PROJETADO
+    # 1. RECEITAS E DESPESAS (Corrente)
     # ==========================================
+    total_receitas = Transacao.objects.filter(tipo='RECEITA', data_vencimento__month=mes_selecionado, data_vencimento__year=ano_selecionado).aggregate(total=Sum('valor'))['total'] or 0
+    despesas_normais = Transacao.objects.filter(tipo='DESPESA', data_vencimento__month=mes_selecionado, data_vencimento__year=ano_selecionado).aggregate(total=Sum('valor'))['total'] or 0
+    
+    # ==========================================
+    # 2. SEPARAÇÃO DAS FATURAS (Atual vs Em Andamento)
+    # ==========================================
+    # A) A Fatura deste mês (a que vence agora)
+    faturas_atual = FaturaCartao.objects.filter(mes=mes_selecionado, ano=ano_selecionado)
+    total_fatura_atual_paga = 0
+    total_fatura_atual_pendente = 0
+    faturas_pendentes_alerta = []
+
+    for f in faturas_atual:
+        gasto = float(f.compras.aggregate(t=Sum('valor'))['t'] or 0)
+        if f.paga:
+            total_fatura_atual_paga += gasto
+        else:
+            total_fatura_atual_pendente += gasto
+            faturas_pendentes_alerta.append({'id': f.id, 'nome': f.nome_cartao, 'valor': gasto})
+
+    # B) A Fatura em Andamento (A que vence o mês que vem, acumulando os gastos de hoje)
+    faturas_andamento = FaturaCartao.objects.filter(mes=mes_seguinte, ano=ano_seguinte)
+    total_fatura_andamento = sum(float(f.compras.aggregate(t=Sum('valor'))['t'] or 0) for f in faturas_andamento)
+
+    # ==========================================
+    # 3. SALDOS FINAIS DE ACORDO COM A SUA REGRA
+    # ==========================================
+    # Despesas do Mês = O que saiu da corrente + O que JÁ FOI PAGO de fatura este mês.
+    total_despesas = float(despesas_normais) + total_fatura_atual_paga
+
     contas_ativas = Conta.objects.filter(ativa=True)
     saldo_geral = sum([conta.saldo_atual for conta in contas_ativas])
 
-    ultimo_dia = calendar.monthrange(ano_selecionado, mes_selecionado)[1]
-    data_limite_projecao = date(ano_selecionado, mes_selecionado, ultimo_dia)
-
-    receitas_pendentes = Transacao.objects.filter(
-        tipo='RECEITA', efetivada=False, data_vencimento__lte=data_limite_projecao
-    ).aggregate(total=Sum('valor'))['total'] or 0
-
-    despesas_pendentes = Transacao.objects.filter(
-        tipo='DESPESA', efetivada=False, data_vencimento__lte=data_limite_projecao
-    ).exclude(descricao__startswith='Pagamento Fatura').aggregate(total=Sum('valor'))['total'] or 0
-
-    faturas_pendentes = FaturaCartao.objects.filter(paga=False).filter(
-        Q(ano__lt=ano_selecionado) | Q(ano=ano_selecionado, mes__lte=mes_selecionado)
-    )
-    total_faturas_projecao = sum([float(f.compras.aggregate(t=Sum('valor'))['t'] or 0) for f in faturas_pendentes])
-
-    saldo_projetado = float(saldo_geral) + float(receitas_pendentes) - float(despesas_pendentes) - total_faturas_projecao
-
-    # ==========================================
-    # 2. RECEITAS E DESPESAS DO MÊS SELECIONADO
-    # ==========================================
-    total_receitas = Transacao.objects.filter(
-        tipo='RECEITA', data_vencimento__month=mes_selecionado, data_vencimento__year=ano_selecionado
-    ).aggregate(total=Sum('valor'))['total'] or 0
-
-    despesas_normais = Transacao.objects.filter(
-        tipo='DESPESA', data_vencimento__month=mes_selecionado, data_vencimento__year=ano_selecionado
-    ).exclude(descricao__startswith='Pagamento Fatura').aggregate(total=Sum('valor'))['total'] or 0
-    
-    despesas_cartao_mes = TransacaoCartao.objects.filter(
-        fatura__mes=mes_selecionado, fatura__ano=ano_selecionado
-    ).aggregate(total=Sum('valor'))['total'] or 0
-
-    total_despesas = float(despesas_normais) + float(despesas_cartao_mes)
+    # Previsão = Saldo Real - O que deve da fatura de agora - O que já gastou na do mês que vem
+    saldo_projetado = float(saldo_geral) - total_fatura_atual_pendente - total_fatura_andamento
     
     # ==========================================
-    # 3. FATURAS PARA A TELA (Atrasadas + Mês Atual + Mês Seguinte)
-    # ==========================================
-    faturas_abertas = FaturaCartao.objects.filter(paga=False).filter(
-        Q(ano__lt=ano_seguinte) | Q(ano=ano_seguinte, mes__lte=mes_seguinte)
-    ).order_by('data_vencimento')
-
-    faturas_dados = []
-    for fatura in faturas_abertas:
-        gasto = fatura.compras.aggregate(total=Sum('valor'))['total'] or 0
-        is_futura = (fatura.mes == mes_seguinte and fatura.ano == ano_seguinte)
-        faturas_dados.append({
-            'fatura': fatura,
-            'total_gasto': gasto,
-            'is_futura': is_futura,
-        })
-
-    # ==========================================
-    # 4. GRÁFICO DE ROSCA (Juntando Conta + Cartão)
+    # (GRÁFICOS E HEATMAP MANTIDOS IGUAIS)
     # ==========================================
     gastos_transacoes = Transacao.objects.filter(
         tipo='DESPESA', data_vencimento__month=mes_selecionado, data_vencimento__year=ano_selecionado, efetivada=True
-    ).exclude(descricao__startswith='Pagamento Fatura').values('categoria__nome', 'categoria__cor').annotate(total=Sum('valor'))
+    ).values('categoria__nome', 'categoria__cor').annotate(total=Sum('valor'))
 
     gastos_cartao = TransacaoCartao.objects.filter(
-        fatura__mes=mes_selecionado, fatura__ano=ano_selecionado
+        fatura__mes=mes_selecionado, fatura__ano=ano_selecionado 
     ).values('categoria__nome', 'categoria__cor').annotate(total=Sum('valor'))
 
     categorias_dict = {}
-    
     for g in gastos_transacoes:
         nome = g['categoria__nome'] or 'Outros'
         cor = g['categoria__cor'] or '#95a5a6'
@@ -130,92 +114,49 @@ def dashboard_financeiro(request):
     valores_grafico = [d['total'] for d in categorias_dict.values()]
     cores_grafico = [d['cor'] for d in categorias_dict.values()]
 
-    # ==========================================
-    # 5. GRÁFICO DE BARRAS (ÚLTIMOS 6 MESES)
-    # ==========================================
-    meses_labels = []
-    receitas_data = []
-    despesas_data = []
-    nomes_meses = ['', 'Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez']
-
+    meses_labels, receitas_data, despesas_data = [], [], []
     for i in range(5, -1, -1):
         mes_calc = hoje.month - i
         ano_calc = hoje.year
         if mes_calc <= 0:
-            mes_calc += 12
-            ano_calc -= 1
-            
+            mes_calc += 12; ano_calc -= 1
         meses_labels.append(f'{nomes_meses[mes_calc]}/{str(ano_calc)[2:]}')
-        
-        rec = Transacao.objects.filter(
-            tipo='RECEITA', data_vencimento__month=mes_calc, data_vencimento__year=ano_calc, efetivada=True
-        ).aggregate(total=Sum('valor'))['total'] or 0
+        rec = Transacao.objects.filter(tipo='RECEITA', data_vencimento__month=mes_calc, data_vencimento__year=ano_calc, efetivada=True).aggregate(total=Sum('valor'))['total'] or 0
         receitas_data.append(float(rec))
-        
-        desp_t = Transacao.objects.filter(
-            tipo='DESPESA', data_vencimento__month=mes_calc, data_vencimento__year=ano_calc, efetivada=True
-        ).exclude(descricao__startswith='Pagamento Fatura').aggregate(total=Sum('valor'))['total'] or 0
-        
-        desp_c = TransacaoCartao.objects.filter(
-            data_compra__month=mes_calc, data_compra__year=ano_calc
-        ).aggregate(total=Sum('valor'))['total'] or 0
-        
+        desp_t = Transacao.objects.filter(tipo='DESPESA', data_vencimento__month=mes_calc, data_vencimento__year=ano_calc, efetivada=True).aggregate(total=Sum('valor'))['total'] or 0
+        desp_c = TransacaoCartao.objects.filter(data_compra__month=mes_calc, data_compra__year=ano_calc).aggregate(total=Sum('valor'))['total'] or 0
         despesas_data.append(float(desp_t) + float(desp_c))
 
-    # Transações Recentes
-    transacoes_recentes = Transacao.objects.all().select_related('categoria', 'conta').order_by('-data_vencimento', '-id')[:10]
-    
-    # ==========================================
-    # 6. DADOS PARA O CALENDÁRIO HEATMAP
-    # ==========================================
     gastos_diarios = {}
-    
-    despesas_cal = Transacao.objects.filter(
-        tipo='DESPESA', data_vencimento__month=mes_selecionado, data_vencimento__year=ano_selecionado
-    ).exclude(descricao__startswith='Pagamento Fatura').values('data_vencimento').annotate(total=Sum('valor'))
-    
-    for d in despesas_cal:
-        dia = d['data_vencimento'].day
-        gastos_diarios[dia] = gastos_diarios.get(dia, 0) + float(d['total'])
-
-    cartao_cal = TransacaoCartao.objects.filter(
-        data_compra__month=mes_selecionado, data_compra__year=ano_selecionado
-    ).values('data_compra').annotate(total=Sum('valor'))
-    
-    for c in cartao_cal:
-        dia = c['data_compra'].day
-        gastos_diarios[dia] = gastos_diarios.get(dia, 0) + float(c['total'])
-
+    despesas_cal = Transacao.objects.filter(tipo='DESPESA', data_vencimento__month=mes_selecionado, data_vencimento__year=ano_selecionado).values('data_vencimento').annotate(total=Sum('valor'))
+    for d in despesas_cal: gastos_diarios[d['data_vencimento'].day] = gastos_diarios.get(d['data_vencimento'].day, 0) + float(d['total'])
+    cartao_cal = TransacaoCartao.objects.filter(data_compra__month=mes_selecionado, data_compra__year=ano_selecionado).values('data_compra').annotate(total=Sum('valor'))
+    for c in cartao_cal: gastos_diarios[c['data_compra'].day] = gastos_diarios.get(c['data_compra'].day, 0) + float(c['total'])
     maior_gasto_diario = max(gastos_diarios.values()) if gastos_diarios else 0
 
+    transacoes_recentes = Transacao.objects.all().select_related('categoria', 'conta').order_by('-data_vencimento', '-id')[:10]
+
     context = {
-        'mes_selecionado': mes_selecionado,
-        'ano_selecionado': ano_selecionado,
-        'nome_mes_selecionado': nome_mes_selecionado,
-        'mes_anterior': mes_anterior,
-        'ano_anterior': ano_anterior,
-        'mes_seguinte': mes_seguinte,
-        'ano_seguinte': ano_seguinte,
+        'mes_selecionado': mes_selecionado, 'ano_selecionado': ano_selecionado, 'nome_mes_selecionado': nome_mes_selecionado,
         
-        'total_receitas': total_receitas,
-        'total_despesas': total_despesas,
-        'saldo': saldo_geral,
-        'saldo_projetado': saldo_projetado,
-        'faturas_dados': faturas_dados,
+        'nome_mes_seguinte': nome_mes_seguinte,
+        
+        'mes_anterior': mes_anterior, 'ano_anterior': ano_anterior, 'mes_seguinte': mes_seguinte, 'ano_seguinte': ano_seguinte,
+        
+        'total_receitas': total_receitas, 'total_despesas': total_despesas, 'saldo': saldo_geral, 
+        
+        'saldo_projetado': saldo_projetado, 
+        
+        'total_fatura_andamento': total_fatura_andamento, 
+        'faturas_pendentes_alerta': faturas_pendentes_alerta,
         
         'transacoes': transacoes_recentes,
+        'labels_grafico': json.dumps(labels_grafico), 'valores_grafico': json.dumps(valores_grafico), 'cores_grafico': json.dumps(cores_grafico),
         
-        'labels_grafico': json.dumps(labels_grafico),
-        'valores_grafico': json.dumps(valores_grafico),
-        'cores_grafico': json.dumps(cores_grafico),
-        'meses_labels': json.dumps(meses_labels),
-        'receitas_data': json.dumps(receitas_data),
-        'despesas_data': json.dumps(despesas_data),
+        'meses_labels': json.dumps(meses_labels), 'receitas_data': json.dumps(receitas_data), 'despesas_data': json.dumps(despesas_data),
         
-        'gastos_diarios': gastos_diarios,
-        'maior_gasto_diario': maior_gasto_diario,
+        'gastos_diarios': gastos_diarios, 'maior_gasto_diario': maior_gasto_diario,
     }
-
     return render(request, 'financeiro/dashboard.html', context)
 
 def painel_orcamentos(request):
@@ -401,3 +342,23 @@ def detalhes_dia_api(request):
             'cores': [d['cor'] for d in categorias_dict.values()]
         }
     })
+
+def forcar_sincronizacao(request):
+    conta = Conta.objects.filter(ativa=True).first()
+    if conta:
+        res_conta = sincronizar_conta_corrente(conta.id)
+        print("\n--- STATUS PLUGGY ---")
+        print(res_conta)
+    
+    res_cartao = sincronizar_cartao_credito("Meu Cartão")
+    print(res_cartao)
+    print("---------------------\n")
+        
+    return redirect('financeiro:home')
+
+def marcar_fatura_paga(request, fatura_id):
+    """Função rápida para o utilizador avisar o sistema que já pagou o cartão"""
+    fatura = get_object_or_404(FaturaCartao, id=fatura_id)
+    fatura.paga = True
+    fatura.save()
+    return redirect('financeiro:home')
