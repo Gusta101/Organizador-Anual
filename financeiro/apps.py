@@ -9,4 +9,3 @@ class FinanceiroConfig(AppConfig):
         Este método roda assim que o app é carregado pelo Django.
         É o local correto para importar os signals e ativá-los.
         '''
-        import financeiro.signals
