@@ -6,7 +6,6 @@ from objetivos.models import ObjetivoMacro
 
 class Conta(models.Model):
     '''
-    Fase 1: Registro (Múltiplas Carteiras)
     Representa os locais onde o usuário tem saldo físico ou digital.
     '''
     TIPOS_CONTA = [
@@ -16,26 +15,40 @@ class Conta(models.Model):
         ('BENEFICIO', 'Vale Alimentação/Refeição'),
         ('INVESTIMENTO', 'Corretora/Investimentos'),
     ]
+    
+    nome_proprietario = models.CharField(max_length=100, help_text='Nome do titular da conta (ex: João Silva)')
 
     nome = models.CharField(max_length=100)
     tipo = models.CharField(max_length=50, choices=TIPOS_CONTA, default='CORRENTE')
+    
+    sincronizada_api = models.BooleanField(default=False, help_text='Marque se esta conta é atualizada pelo Pluggy')
+    saldo_banco = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, help_text='Saldo absoluto retornado pela API')
+    
+    # Mantido para contas manuais (Dinheiro na carteira, etc)
     saldo_inicial = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+    
     data_criacao = models.DateTimeField(auto_now_add=True)
     ativa = models.BooleanField(default=True)
     
+    def gerar_list_nome(self):
+        return [p.lower() for p in self.nome.split() if p.lower() not in ['da', 'de', 'do', 'das', 'dos']]
+    
     @property
     def saldo_atual(self):
-        # Calcula o saldo atual somando o saldo inicial com as transações efetivadas
+        # 1. Se for uma conta automática (Nubank), a API é a única dona da verdade!
+        if self.sincronizada_api:
+            return self.saldo_banco
+            
+        # 2. Se for uma conta manual (Dinheiro), faz o cálculo clássico
         receitas = self.transacoes.filter(tipo='RECEITA', efetivada=True).aggregate(total=Sum('valor'))['total'] or 0
-        
         despesas = self.transacoes.filter(tipo='DESPESA', efetivada=True).aggregate(total=Sum('valor'))['total'] or 0
-        
         aportes_objetivos = self.transacoes.filter(tipo='TRANSFERENCIA', efetivada=True, objetivo_vinculado__isnull=False).aggregate(total=Sum('valor'))['total'] or 0
 
         return self.saldo_inicial + receitas - despesas - aportes_objetivos
 
     def __str__(self):
-        return f'{self.nome} ({self.get_tipo_display()})'
+        status_sync = ' [SYNC]' if self.sincronizada_api else ''
+        return f'{self.nome} ({self.get_tipo_display()}){status_sync}'
 
 class CategoriaFinanceira(models.Model):
     '''
@@ -73,8 +86,7 @@ class OrcamentoMensal(models.Model):
 
 class Transacao(models.Model):
     '''
-    Fase 1 e 3: Registro e Crescimento
-    A espinha dorsal do app. Pode ser uma despesa, receita ou um aporte em um Objetivo.
+    Pode ser uma despesa, receita ou um aporte em um Objetivo.
     '''
     TIPOS_TRANSACAO = [
         ('RECEITA', 'Receita'),
@@ -93,6 +105,8 @@ class Transacao(models.Model):
     
     # Status de Efetivação
     efetivada = models.BooleanField(default=False, help_text='Marca se o dinheiro já saiu/entrou na conta de fato')
+    
+    revisada = models.BooleanField(default=True)
 
     # Identificador único da API do Pluggy para evitar duplicados
     id_api = models.CharField(max_length=255, unique=True, null=True, blank=True)
@@ -131,6 +145,8 @@ class FaturaCartao(models.Model):
     data_fechamento = models.DateField()
     data_vencimento = models.DateField()
     paga = models.BooleanField(default=False)
+    id_fatura_banco = models.CharField(max_length=255, null=True, blank=True)
+    valor_pago = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
 
     def __str__(self):
         return f'Fatura {self.nome_cartao} - {self.mes}/{self.ano}'
@@ -141,6 +157,8 @@ class TransacaoCartao(models.Model):
     categoria = models.ForeignKey(CategoriaFinanceira, on_delete=models.SET_NULL, null=True, blank=True)
     valor = models.DecimalField(max_digits=10, decimal_places=2)
     data_compra = models.DateField(default=timezone.now)
+    
+    revisada = models.BooleanField(default=False)
     
     # Identificador único da API do Pluggy para evitar duplicados
     id_api = models.CharField(max_length=255, unique=True, null=True, blank=True)
