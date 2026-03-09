@@ -6,7 +6,8 @@ from objetivos.models import ObjetivoMacro
 
 class Conta(models.Model):
     '''
-    Representa os locais onde o usuário tem saldo físico ou digital.
+    Dimensão Conta (dConta no Power BI)
+    Representa os locais onde o utilizador tem saldo físico, digital ou crédito.
     '''
     TIPOS_CONTA = [
         ('CORRENTE', 'Conta Corrente'),
@@ -14,19 +15,17 @@ class Conta(models.Model):
         ('DINHEIRO', 'Dinheiro Físico'),
         ('BENEFICIO', 'Vale Alimentação/Refeição'),
         ('INVESTIMENTO', 'Corretora/Investimentos'),
+        ('CARTAO_CREDITO', 'Cartão de Crédito'), # ADICIONADO PARA O BI
     ]
     
     nome_proprietario = models.CharField(max_length=100, help_text='Nome do titular da conta (ex: João Silva)')
-
     nome = models.CharField(max_length=100)
     tipo = models.CharField(max_length=50, choices=TIPOS_CONTA, default='CORRENTE')
     
     sincronizada_api = models.BooleanField(default=False, help_text='Marque se esta conta é atualizada pelo Pluggy')
     saldo_banco = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, help_text='Saldo absoluto retornado pela API')
     
-    # Mantido para contas manuais (Dinheiro na carteira, etc)
     saldo_inicial = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
-    
     data_criacao = models.DateTimeField(auto_now_add=True)
     ativa = models.BooleanField(default=True)
     
@@ -35,11 +34,9 @@ class Conta(models.Model):
     
     @property
     def saldo_atual(self):
-        # 1. Se for uma conta automática (Nubank), a API é a única dona da verdade!
         if self.sincronizada_api:
             return self.saldo_banco
             
-        # 2. Se for uma conta manual (Dinheiro), faz o cálculo clássico
         receitas = self.transacoes.filter(tipo='RECEITA', efetivada=True).aggregate(total=Sum('valor'))['total'] or 0
         despesas = self.transacoes.filter(tipo='DESPESA', efetivada=True).aggregate(total=Sum('valor'))['total'] or 0
         aportes_objetivos = self.transacoes.filter(tipo='TRANSFERENCIA', efetivada=True, objetivo_vinculado__isnull=False).aggregate(total=Sum('valor'))['total'] or 0
@@ -52,8 +49,7 @@ class Conta(models.Model):
 
 class CategoriaFinanceira(models.Model):
     '''
-    Fase 1 e 4: Registro e Análise
-    Essencial para os gráficos de fluxo de caixa e tetos de gastos.
+    Dimensão Categoria (dCategoria no Power BI)
     '''
     TIPOS_CATEGORIA = [
         ('RECEITA', 'Receita / Ganho'),
@@ -69,10 +65,6 @@ class CategoriaFinanceira(models.Model):
         return f'{self.nome} - {self.get_tipo_display()}'
 
 class OrcamentoMensal(models.Model):
-    '''
-    Fase 2: Planejamento
-    Define o limite de gastos para uma categoria em um mês específico.
-    '''
     categoria = models.ForeignKey(CategoriaFinanceira, on_delete=models.CASCADE, limit_choices_to={'tipo': 'DESPESA'})
     mes = models.IntegerField(help_text='Mês (1-12)')
     ano = models.IntegerField()
@@ -86,7 +78,7 @@ class OrcamentoMensal(models.Model):
 
 class Transacao(models.Model):
     '''
-    Pode ser uma despesa, receita ou um aporte em um Objetivo.
+    Tabela Fato Principal (fTransacoes no Power BI)
     '''
     TIPOS_TRANSACAO = [
         ('RECEITA', 'Receita'),
@@ -103,16 +95,10 @@ class Transacao(models.Model):
     conta = models.ForeignKey(Conta, on_delete=models.PROTECT, related_name='transacoes')
     categoria = models.ForeignKey(CategoriaFinanceira, on_delete=models.SET_NULL, null=True, blank=True)
     
-    # Status de Efetivação
     efetivada = models.BooleanField(default=False, help_text='Marca se o dinheiro já saiu/entrou na conta de fato')
-    
     revisada = models.BooleanField(default=True)
-
-    # Identificador único da API do Pluggy para evitar duplicados
     id_api = models.CharField(max_length=255, unique=True, null=True, blank=True)
 
-    # Integração com os Objetivos Macro (Fase 3: Crescimento)
-    # Se a transação for um "depósito" para o Carro 2026, vinculamos aqui.
     objetivo_vinculado = models.ForeignKey(
         ObjetivoMacro, 
         on_delete=models.SET_NULL, 
@@ -122,7 +108,6 @@ class Transacao(models.Model):
         help_text='Se for um aporte para uma meta, selecione o objetivo.'
     )
 
-    # Para lidar com parcelamentos de forma simples (Pai e Filhos)
     transacao_pai = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='parcelas')
     numero_parcela = models.IntegerField(default=1)
     total_parcelas = models.IntegerField(default=1)
@@ -135,11 +120,9 @@ class Transacao(models.Model):
         return f'{self.descricao} | R$ {self.valor} ({status})'
 
 class FaturaCartao(models.Model):
-    '''
-    Módulo adicional para Fase 1 (Cartão de Crédito)
-    Isola os gastos do cartão do saldo da conta até o dia do pagamento.
-    '''
-    nome_cartao = models.CharField(max_length=100)
+    # LIGAÇÃO CRUCIAL PARA O BI: A fatura agora pertence a uma Conta Dimensão
+    conta_cartao = models.ForeignKey(Conta, on_delete=models.CASCADE, limit_choices_to={'tipo': 'CARTAO_CREDITO'}, null=True, blank=True)
+    
     mes = models.IntegerField()
     ano = models.IntegerField()
     data_fechamento = models.DateField()
@@ -149,35 +132,35 @@ class FaturaCartao(models.Model):
     valor_pago = models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
 
     def __str__(self):
-        return f'Fatura {self.nome_cartao} - {self.mes}/{self.ano}'
+        nome = self.conta_cartao.nome if self.conta_cartao else 'Cartão Desconhecido'
+        return f'Fatura {nome} - {self.mes}/{self.ano}'
 
 class TransacaoCartao(models.Model):
+    '''
+    Tabela Fato Secundária.
+    Adicionados campos "tipo" e "efetivada" para permitir um Append perfeito no Power Query com a Transacao.
+    '''
     fatura = models.ForeignKey(FaturaCartao, on_delete=models.CASCADE, related_name='compras')
     descricao = models.CharField(max_length=255)
     categoria = models.ForeignKey(CategoriaFinanceira, on_delete=models.SET_NULL, null=True, blank=True)
     valor = models.DecimalField(max_digits=10, decimal_places=2)
     data_compra = models.DateField(default=timezone.now)
     
-    revisada = models.BooleanField(default=False)
+    # CAMPOS ESPELHADOS PARA O BI:
+    tipo = models.CharField(max_length=50, default='DESPESA')
+    efetivada = models.BooleanField(default=True)
     
-    # Identificador único da API do Pluggy para evitar duplicados
+    revisada = models.BooleanField(default=False)
     id_api = models.CharField(max_length=255, unique=True, null=True, blank=True)
     
     def __str__(self):
         return f'{self.descricao} - R$ {self.valor}'
 
 class RegraAporteAutomatico(models.Model):
-    '''
-    Fase 3: Distribuição Automática
-    Gera aportes em cofres no primeiro dia do mês via Cron Job.
-    '''
     objetivo = models.ForeignKey(ObjetivoMacro, on_delete=models.CASCADE, related_name='regras_aporte')
     conta_origem = models.ForeignKey(Conta, on_delete=models.CASCADE)
     valor_fixo = models.DecimalField(max_digits=10, decimal_places=2, help_text='Valor a ser transferido mensalmente')
-    
     ativa = models.BooleanField(default=True)
-    
-    # Campo crucial para evitar duplicidade! Formato esperado: '02-2026'
     ultimo_mes_processado = models.CharField(max_length=7, blank=True, null=True)
 
     def __str__(self):

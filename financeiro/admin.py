@@ -42,16 +42,13 @@ class TransacaoCartaoInline(admin.TabularInline):
 
 @admin.register(FaturaCartao)
 class FaturaCartaoAdmin(admin.ModelAdmin):
-    list_display = ('nome_cartao', 'mes', 'ano', 'data_vencimento', 'data_fechamento', 'paga')
-    list_filter = ('nome_cartao', 'paga', 'ano', 'mes')
-    inlines = [TransacaoCartaoInline] # Adiciona as transações aqui dentro!
-    list_editable = ('paga',)
+    list_display = ('conta_cartao', 'mes', 'ano', 'data_vencimento', 'paga') 
+    list_filter = ('conta_cartao', 'paga', 'ano', 'mes')
 
 @admin.register(TransacaoCartao)
 class TransacaoCartaoAdmin(admin.ModelAdmin):
-    list_display = ('descricao', 'fatura', 'categoria', 'valor', 'data_compra')
-    list_filter = ('fatura__nome_cartao', 'categoria', 'data_compra')
-    search_fields = ('descricao',)
+    list_display = ('descricao', 'valor', 'data_compra', 'fatura', 'categoria') 
+    list_filter = ('fatura__conta_cartao', 'categoria', 'data_compra')
 
 @admin.register(RegraAporteAutomatico)
 class RegraAporteAutomaticoAdmin(admin.ModelAdmin):
