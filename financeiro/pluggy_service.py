@@ -153,46 +153,32 @@ def sincronizar_conta_corrente(conta_django_id):
         )
         
         # =======================================================
-        # Amortização com Trava Temporal
+        # Amortização com Teto Máximo (Sem Efeito Cascata)
         # =======================================================
         if created and pagamento_fatura:
-            valor_restante = valor
-            
-            # Limita a busca para evitar que pagamentos antigos quitem faturas futuras
             limite_inferior = data_alvo - timedelta(days=45)
-            limite_superior = data_alvo + timedelta(days=20)
+            limite_superior = data_alvo + timedelta(days=45)
             
-            faturas_pendentes = FaturaCartao.objects.filter(
+            fatura_alvo = FaturaCartao.objects.filter(
                 paga=False,
                 data_vencimento__gte=limite_inferior,
                 data_vencimento__lte=limite_superior
-            ).order_by('data_vencimento')
+            ).order_by('data_vencimento').first()
             
-            for fatura in faturas_pendentes:
-                if valor_restante <= 0.05: 
-                    break
-                    
-                total_fatura = float(fatura.compras.aggregate(t=Sum('valor'))['t'] or 0)
+            if fatura_alvo:
+                total_fatura = float(fatura_alvo.compras.aggregate(t=Sum('valor'))['t'] or 0)
                 
-                if total_fatura <= 0:
-                    continue
-                    
-                falta_pagar = total_fatura - float(fatura.valor_pago)
+                # Soma o pagamento atual ao que já estava no cofre
+                novo_valor_pago = float(fatura_alvo.valor_pago) + valor
                 
-                if falta_pagar <= 0:
-                    fatura.paga = True
-                    fatura.save()
-                    continue
-                
-                if valor_restante >= falta_pagar:
-                    fatura.valor_pago = float(fatura.valor_pago) + falta_pagar
-                    fatura.paga = True
-                    fatura.save()
-                    valor_restante -= falta_pagar 
+                # Se o pagamento quitar ou ultrapassar a fatura, trava no valor exato do teto
+                if novo_valor_pago >= (total_fatura - 0.10):
+                    fatura_alvo.valor_pago = total_fatura
+                    fatura_alvo.paga = True
                 else:
-                    fatura.valor_pago = float(fatura.valor_pago) + valor_restante
-                    fatura.save()
-                    valor_restante = 0
+                    fatura_alvo.valor_pago = novo_valor_pago
+                    
+                fatura_alvo.save()
 
     return 'Conta Atualizada.'
 
