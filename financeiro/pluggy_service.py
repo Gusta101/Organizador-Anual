@@ -3,6 +3,7 @@ import requests
 import time
 from dotenv import load_dotenv
 from django.utils import timezone
+from django.utils.timezone import localtime
 from django.utils.dateparse import parse_datetime
 from datetime import date, timedelta
 from django.db.models import Sum
@@ -27,7 +28,7 @@ def obter_token_pluggy():
 
 # Esta função força a API da Pluggy a buscar os dados mais recentes diretamente no banco.
 # Ela descobre a qual "Item" (conexão bancária) a conta pertence, pede uma atualização via PATCH,
-# e faz um loop (polling) verificando a cada 3 segundos se a atualização terminou, com um limite de 5 tentativas.
+# e faz um loop (polling) verificando a cada 3 segundos se a atualização terminou, com um timeout de 20 tentativas (1 minuto).
 def forcar_atualizacao_pluggy(account_id, token):
     res_acc = requests.get(f'{BASE_URL}/accounts/{account_id}', headers={'accept': 'application/json', 'X-API-KEY': token})
     if res_acc.status_code != 200: return False
@@ -43,7 +44,6 @@ def forcar_atualizacao_pluggy(account_id, token):
         time.sleep(3)
         res_item = requests.get(url_item, headers={'accept': 'application/json', 'X-API-KEY': token})
         status = res_item.json().get('status')
-        print(f'Atualizando banco (Item {item_id[:5]})... Estado: {status}')
         if status not in ['UPDATING', 'WAITING_USER_INPUT', 'LOGIN_IN_PROGRESS']:
             break
         tentativas += 1
@@ -53,8 +53,10 @@ def forcar_atualizacao_pluggy(account_id, token):
 # Retorna uma lista de dicionários contendo os dados brutos de cada movimentação.
 def buscar_transacoes_api(account_id, token):
     if not token or not account_id: return []
-    url = f'{BASE_URL}/transactions'
-    response = requests.get(url, headers={'accept': 'application/json', 'X-API-KEY': token}, params={'accountId': account_id})
+    url = f"{BASE_URL}/transactions"
+    
+    response = requests.get(url, headers={"accept": "application/json", "X-API-KEY": token}, params={"accountId": account_id, "pageSize": 500})
+    
     if response.status_code == 200: return response.json().get('results', [])
     return []
 
@@ -66,14 +68,7 @@ def buscar_saldo_real_api(account_id, token):
     if response.status_code == 200: return response.json().get('balance', 0)
     return 0
 
-# Função principal para sincronizar uma CONTA CORRENTE.
-# Ela realiza os seguintes passos:
-# 1. Pega o token, atualiza o banco e baixa transações e saldo real.
-# 2. Ajusta o "saldo_inicial" da conta no banco de dados local (Django) para que, 
-#    somado às transações cadastradas, reflita o saldo real atual da conta.
-# 3. Varre as transações trazidas da API, descobre se são RECEITAS, DESPESAS ou TRANSFERÊNCIAS 
-#    com base em palavras-chave e valores.
-# 4. Salva ou atualiza as categorias e transações no banco de dados local do seu app.
+# Função principal para sincronizar uma CONTA CORRENTE
 def sincronizar_conta_corrente(conta_django_id):
     token = obter_token_pluggy()
     if not token: return 'Falha.'
@@ -87,19 +82,16 @@ def sincronizar_conta_corrente(conta_django_id):
     except Conta.DoesNotExist: 
         return 'Conta não encontrada.'
 
-    # Ajuste milimétrico do saldo inicial
-    movimentacoes_django = Transacao.objects.filter(conta=conta_destino, efetivada=True)
-    receitas_dj = movimentacoes_django.filter(tipo='RECEITA').aggregate(t=Sum('valor'))['t'] or 0
-    despesas_dj = movimentacoes_django.filter(tipo='DESPESA').aggregate(t=Sum('valor'))['t'] or 0
-    conta_destino.saldo_inicial = float(saldo_real) - float(receitas_dj) + float(despesas_dj)
+    conta_destino.saldo_banco = float(saldo_real)
     conta_destino.save()
 
+    # Percorre todas as transações retornadas pela API
     for t in transacoes_api:
         id_api = t.get('id')
         if not id_api: continue
         
         # =======================================================
-        # 1. EXTRAÇÃO DOS DADOS (O JSON Limpo)
+        # Extração dos dados
         # =======================================================
         descricao = t.get('description', '')
         amount = float(t.get('amount', 0))
@@ -107,7 +99,6 @@ def sincronizar_conta_corrente(conta_django_id):
         date_str = t.get('date')
         status = t.get('status')
         
-        # Mergulhando nos Dados Bancários (O JSON do PIX/Boleto)
         payment_data = t.get('paymentData') or {}
         metodo_pagamento = payment_data.get('paymentMethod') or 'OTHER' # PIX, TED, BOLETO, OTHER
         
@@ -116,32 +107,32 @@ def sincronizar_conta_corrente(conta_django_id):
         valor = abs(amount)
         
         # =======================================================
-        # 2. A ÁRVORE DE DECISÃO (A Lógica de Classificação)
+        # Árvore de Decisão do Tipo de Transação
         # =======================================================
         tipo_final = 'DESPESA' if is_saida else 'RECEITA'
         pagamento_fatura = False
         
-        # REGRA A: Pagamento de Fatura do Cartão (Dá baixa automática)
-        palavras_fatura = ['fatura', 'pagamento cartão', 'fatura nubank']
+        # REGRA 1: Pagamento de Fatura do Cartão (Dá baixa automática)
+        palavras_fatura = ['fatura', 'pagamento cartão', 'fatura nubank', 'pagamento crédito', 'fatura itau', 'pagamento de fatura', 'fatura santander']
         if is_saida and any(p in desc_lower for p in palavras_fatura):
-            tipo_final = 'TRANSFERENCIA' # Neutro para não inflar as despesas
+            tipo_final = 'TRANSFERENCIA'
             pagamento_fatura = True
             
-        # REGRA B: Caixinhas e Investimentos
-        elif any(p in desc_lower for p in ['caixinha', 'resgate', 'investimento', 'aplicação']):
+        # REGRA 2: Caixinhas e Investimentos
+        elif any(p in desc_lower for p in ['caixinha', 'resgate', 'resgate rdb', 'investimento', 'aplicação', 'aplicação rdb']):
             tipo_final = 'TRANSFERENCIA'
             
-        # REGRA C: Transações PIX
-        elif metodo_pagamento == 'PIX':
-            # Vai para a área de "Revisão" que criámos antes para si
-            tipo_final = 'DESPESA' if is_saida else 'RECEITA'
+        # REGRA 3: Transações PIX para mim mesmo
+        elif metodo_pagamento == 'PIX' and any(p in desc_lower for p in conta_destino.gerar_list_nome()):
+            tipo_final = 'TRANSFERENCIA'
+            is_saida = False
             
-        # REGRA D: Boletos e outros pagamentos
+        # REGRA 4: Boletos e outros pagamentos
         elif metodo_pagamento == 'BOLETO':
             tipo_final = 'DESPESA'
             
         # =======================================================
-        # 3. GRAVAR NO BANCO DE DADOS
+        # Define categorias e datas com base nos dados da API
         # =======================================================
         data_alvo = parse_datetime(date_str).date() if date_str else timezone.now().date()
         efetivada = True if status == 'POSTED' else False
@@ -150,6 +141,15 @@ def sincronizar_conta_corrente(conta_django_id):
             nome=categoria_api or 'Outros', 
             defaults={'tipo': 'DESPESA', 'cor': '#95a5a6'}
         )
+        
+        # =======================================================
+        # CONVERSÃO DE FUSO HORÁRIO (UTC -> LOCAL)
+        # =======================================================
+        if date_str:
+            dt_utc = parse_datetime(date_str)
+            data_alvo = localtime(dt_utc).date() 
+        else:
+            data_alvo = timezone.now().date()
 
         # Usamos update_or_create para nunca duplicar
         transacao_obj, created = Transacao.objects.update_or_create(
@@ -163,38 +163,41 @@ def sincronizar_conta_corrente(conta_django_id):
                 'conta': conta_destino, 
                 'categoria': categoria, 
                 'efetivada': efetivada,
-                'revisada': False
+                'revisada': True
             }
         )
         
         # =======================================================
-        # 4. A MAGIA: DANDO BAIXA NA FATURA DO CARTÃO!
+        # Baixa automática e parcial de fatura (SEM LIMITE DE DIAS)
         # =======================================================
         if created and pagamento_fatura:
             print(f"🔥 Pagamento de Fatura detetado no dia {data_alvo.strftime('%d/%m')}: R$ {valor}")
             
-            # Procura a fatura mais antiga em aberto para dar baixa
-            # Ex: Se você pagou em Março, ele caça a fatura de Março que está "paga=False"
+            # Pega simplesmente a fatura mais antiga que ainda está com "paga=False"
             fatura_pendente = FaturaCartao.objects.filter(
-                paga=False, 
-                data_vencimento__lte=data_alvo + timedelta(days=20)
+                paga=False
             ).order_by('data_vencimento').first()
             
             if fatura_pendente:
-                fatura_pendente.paga = True
+                total_fatura = float(fatura_pendente.compras.aggregate(t=Sum('valor'))['t'] or 0)
+                
+                # Injeta o pagamento de agora no cofre da fatura
+                fatura_pendente.valor_pago = float(fatura_pendente.valor_pago) + valor
+                
+                # Se o cofre encher, a fatura está quitada! (margem de 10 centavos para evitar bugs)
+                if fatura_pendente.valor_pago >= (total_fatura - 0.10):
+                    fatura_pendente.paga = True
+                    print(f"✅ Fatura {fatura_pendente.mes:02d}/{fatura_pendente.ano} QUITADA 100%!")
+                else:
+                    print(f"⏳ Fatura amortizada. Restam R$ {(total_fatura - float(fatura_pendente.valor_pago)):.2f}")
+                    
                 fatura_pendente.save()
-                print(f"✅ Fatura {fatura_pendente.mes:02d}/{fatura_pendente.ano} marcada como PAGA automaticamente!")
+            else:
+                print("⚠️ Nenhum fatura pendente encontrada para alocar este pagamento.")
 
     return 'Conta Atualizada.'
 
-# Função principal para sincronizar um CARTÃO DE CRÉDITO.
-# Ela realiza os seguintes passos:
-# 1. Autentica e força a atualização das faturas na API.
-# 2. Ignora valores positivos ou zerados (focando apenas nos gastos, que muitas vezes vêm negativos na API, mas que viram "valor absoluto" aqui).
-# 3. Possui uma lógica de fechamento de fatura: se a compra foi até o dia 2, entra na fatura do mês atual. 
-#    Se foi após o dia 2, joga para a fatura do mês seguinte (tratando a virada de ano).
-# 4. Cria a Fatura se não existir, e atrela cada transação a ela no banco do Django.
-# 5. Imprime um log no terminal detalhando se a transação é nova ou não, especialmente focado em faturas a partir de março de 2026.
+# Função principal para sincronizar um CARTÃO DE CRÉDITO
 def sincronizar_cartao_credito(nome_cartao='Meu Cartão'):
     token = obter_token_pluggy()
     if not token: return 'Falha.'
@@ -203,29 +206,37 @@ def sincronizar_cartao_credito(nome_cartao='Meu Cartão'):
     transacoes_api = buscar_transacoes_api(ACCOUNT_ID_CREDITO, token)
     hoje = timezone.now().date()
 
+    # Percorre todas as transações retornadas pela API
     for t in transacoes_api:
         id_api = t.get('id')
         if not id_api: continue
         
         amount = float(t.get('amount', 0))
-        if amount <= 0: continue 
+        
+        if amount <= 0:
+            continue
         
         valor = amount
         descricao = t.get('description', 'Compra Cartão')
         categoria_api = t.get('category', '')
         date_str = t.get('date')
         
-        data_alvo = parse_datetime(date_str) if date_str else timezone.now()
-        data_compra = data_alvo.date()
+        # =======================================================
+        # CONVERSÃO DE FUSO HORÁRIO (UTC -> LOCAL)
+        # =======================================================
+        if date_str:
+            dt_utc = parse_datetime(date_str)
+            data_compra = localtime(dt_utc).date()
+        else:
+            data_compra = timezone.now().date()
         
         # =======================================================
-        # A MAGIA DO CAMINHO A: BUSCAR O ID EXATO DA FATURA
+        # Árvore de Decisão do tipo de transação
         # =======================================================
         credit_data = t.get('creditCardMetadata') or {}
-        bill_id = credit_data.get('billId')
+        bill_id = credit_data.get('billId') # ID da fatura
         
-        # Estimativa visual de mês/ano apenas para dar um nome bonito à fatura no Dashboard
-        if data_compra.day <= 10:
+        if data_compra.day <= 2:
             mes_fatura = data_compra.month
             ano_fatura = data_compra.year
         else:
@@ -237,32 +248,29 @@ def sincronizar_cartao_credito(nome_cartao='Meu Cartão'):
 
         ja_foi_paga = True if (ano_fatura < hoje.year or (ano_fatura == hoje.year and mes_fatura < hoje.month)) else False
 
-        # Se o Nubank mandou o ID da fatura, usamos como âncora!
+        fatura = None
+        
         if bill_id:
-            fatura, _ = FaturaCartao.objects.get_or_create(
+            fatura = FaturaCartao.objects.filter(id_fatura_banco=bill_id).first()
+            
+        if not fatura:
+            fatura = FaturaCartao.objects.filter(nome_cartao=nome_cartao, mes=mes_fatura, ano=ano_fatura).first()
+            
+        if not fatura:
+            fatura = FaturaCartao.objects.create(
                 id_fatura_banco=bill_id,
-                defaults={
-                    'nome_cartao': nome_cartao,
-                    'mes': mes_fatura,
-                    'ano': ano_fatura,
-                    'data_fechamento': date(ano_fatura, mes_fatura, 2),
-                    'data_vencimento': date(ano_fatura, mes_fatura, 10),
-                    'paga': ja_foi_paga
-                }
-            )
-        else:
-            # Fallback: Compras feitas HOJE podem ainda não ter billId gerado pelo banco
-            fatura, _ = FaturaCartao.objects.get_or_create(
                 nome_cartao=nome_cartao,
                 mes=mes_fatura,
                 ano=ano_fatura,
-                defaults={
-                    'data_fechamento': date(ano_fatura, mes_fatura, 2),
-                    'data_vencimento': date(ano_fatura, mes_fatura, 10),
-                    'paga': ja_foi_paga
-                }
+                data_fechamento=date(ano_fatura, mes_fatura, 2),
+                data_vencimento=date(ano_fatura, mes_fatura, 10),
+                paga=ja_foi_paga
             )
-            
+        elif bill_id and not fatura.id_fatura_banco:
+            # Se a fatura já existia (criada pelo fallback), mas agora o banco mandou o ID, nós atualizamos!
+            fatura.id_fatura_banco = bill_id
+            fatura.save()
+        
         categoria, _ = CategoriaFinanceira.objects.get_or_create(
             nome=categoria_api or 'Outros', 
             defaults={'tipo': 'DESPESA', 'cor': '#95a5a6'}

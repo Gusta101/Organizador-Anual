@@ -11,7 +11,7 @@ import json
 from datetime import date
 import calendar
 
-from .pluggy_service import sincronizar_conta_corrente, sincronizar_cartao_credito
+from .pluggy_service import ACCOUNT_ID_CORRENTE, buscar_saldo_real_api, obter_token_pluggy, sincronizar_conta_corrente, sincronizar_cartao_credito
 
 def adicionar_meses(data_original, meses):
     if hasattr(data_original, 'date') and callable(data_original.date):
@@ -49,87 +49,56 @@ def dashboard_financeiro(request):
     # ==========================================
     # 1. RECEITAS E DESPESAS (Corrente)
     # ==========================================
-    total_receitas = Transacao.objects.filter(tipo='RECEITA', data_vencimento__month=mes_selecionado, data_vencimento__year=ano_selecionado).aggregate(total=Sum('valor'))['total'] or 0
-    despesas_normais = Transacao.objects.filter(tipo='DESPESA', data_vencimento__month=mes_selecionado, data_vencimento__year=ano_selecionado).aggregate(total=Sum('valor'))['total'] or 0
+    total_receitas = Transacao.objects.filter(tipo='RECEITA', data_vencimento__month=mes_atual, data_vencimento__year=ano_atual).aggregate(total=Sum('valor'))['total'] or 0
+    despesas_normais = Transacao.objects.filter(tipo='DESPESA', data_vencimento__month=mes_atual, data_vencimento__year=ano_atual).aggregate(total=Sum('valor'))['total'] or 0
     
     # ==========================================
-    # 2. SEPARAÇÃO DAS FATURAS (Atual vs Em Andamento)
+    # 2. SEPARAÇÃO DAS FATURAS (Apenas Alertas e Previsão)
     # ==========================================
     # A) A Fatura deste mês (a que vence agora)
     faturas_atual = FaturaCartao.objects.filter(mes=mes_selecionado, ano=ano_selecionado)
-    total_fatura_atual_paga = 0
     total_fatura_atual_pendente = 0
     faturas_pendentes_alerta = []
 
     for f in faturas_atual:
-        gasto = float(f.compras.aggregate(t=Sum('valor'))['t'] or 0)
-        if f.paga:
-            total_fatura_atual_paga += gasto
-        else:
-            total_fatura_atual_pendente += gasto
-            faturas_pendentes_alerta.append({'id': f.id, 'nome': f.nome_cartao, 'valor': gasto})
+        gasto_total = float(f.compras.aggregate(t=Sum('valor'))['t'] or 0)
+        valor_ja_pago = float(f.valor_pago)
+        
+        if not f.paga:
+            # O sistema agora só desconta da sua previsão de saldo o que falta pagar!
+            restante = gasto_total - valor_ja_pago
+            total_fatura_atual_pendente += restante 
+            faturas_pendentes_alerta.append({
+                'id': f.id, 'nome': f.nome_cartao, 
+                'valor_total': gasto_total, 'valor_pago': valor_ja_pago, 'restante': restante
+            })
 
-    # B) A Fatura em Andamento (A que vence o mês que vem, acumulando os gastos de hoje)
+    # B) A Fatura em Andamento (A que vence o mês que vem)
     faturas_andamento = FaturaCartao.objects.filter(mes=mes_seguinte, ano=ano_seguinte)
     total_fatura_andamento = sum(float(f.compras.aggregate(t=Sum('valor'))['t'] or 0) for f in faturas_andamento)
 
     # ==========================================
-    # 3. SALDOS FINAIS DE ACORDO COM A SUA REGRA
+    # SALDOS FINAIS: REGIME DE CAIXA (O QUE SAIU ESTE MÊS)
     # ==========================================
-    
-    # Despesas do Mês = O que saiu da corrente + O que JÁ FOI PAGO de fatura este mês.
-    total_despesas = float(despesas_normais) + total_fatura_atual_paga
-    
-    
-    
-    # ==========================================
-    # 🕵️‍♂️ DEBUG: O QUE COMPÕE AS DESPESAS DO MÊS?
-    # ==========================================
-    print('\n' + '='*60)
-    print(f'🕵️‍♂️ DEBUG DE DESPESAS - MÊS {mes_selecionado:02d}/{ano_selecionado}')
-    print('='*60)
-
-    # 1. Detalhar as despesas da Conta Corrente
-    despesas_corrente_lista = Transacao.objects.filter(
-        tipo='DESPESA', 
+    # Busca APENAS as transferências deste mês que são pagamentos de fatura
+    pagamentos_fatura_mes = Transacao.objects.filter(
+        tipo='TRANSFERENCIA',
         data_vencimento__month=mes_selecionado, 
-        data_vencimento__year=ano_selecionado
-    ).order_by('data_vencimento')
-    
-    print(f'\n--- 1. CONTA CORRENTE (Total somado: R$ {float(despesas_normais):.2f}) ---')
-    if not despesas_corrente_lista:
-        print(' Nenhuma despesa na conta corrente este mês.')
-    else:
-        for d in despesas_corrente_lista:
-            data_fmt = d.data_vencimento.strftime('%d/%m')
-            print(f' [{data_fmt}] R$ {float(d.valor):>8.2f} | {d.descricao[:35]}')
+        data_vencimento__year=ano_selecionado,
+        efetivada=True
+    ).filter(
+        Q(descricao__icontains='fatura') | 
+        Q(descricao__icontains='pagamento cartão') |
+        Q(descricao__icontains='pagamento crédito')
+    ).aggregate(total=Sum('valor'))['total'] or 0
 
-    # 2. Detalhar as Faturas Pagas do Mês
-    print(f'\n--- 2. FATURAS DO CARTÃO (Total somado: R$ {float(total_fatura_atual_paga):.2f}) ---')
-    if not faturas_atual:
-        print(' Nenhuma fatura encontrada para este mês.')
-    else:
-        for f in faturas_atual:
-            gasto_fatura = float(f.compras.aggregate(t=Sum('valor'))['t'] or 0)
-            status_fatura = '✅ PAGA (Entrou na soma)' if f.paga else '⏳ PENDENTE (Ignorada das despesas)'
-            print(f' Fatura {f.nome_cartao}: R$ {gasto_fatura:.2f} -> {status_fatura}')
-            
-            # Lista as compras individuais da fatura, caso ela esteja paga e a somar no total
-            if f.paga:
-                for compra in f.compras.all().order_by('data_compra'):
-                    data_compra_fmt = compra.data_compra.strftime('%d/%m')
-                    print(f'    -> [{data_compra_fmt}] R$ {float(compra.valor):>8.2f} | {compra.descricao[:30]}')
+    # Despesas do Card = Dinheiro gasto na conta (PIX/Débito) + Pagamentos de fatura FEITOS NESTE MÊS
+    total_despesas = float(despesas_normais) + float(pagamentos_fatura_mes)
 
-    print('\n' + '-'*60)
-    print(f'💰 TOTAL FINAL EXIBIDO NO DASHBOARD: R$ {float(total_despesas):.2f}')
-    print('='*60 + '\n')
-    # ==========================================
-    
-    
-    
-
-    contas_ativas = Conta.objects.filter(ativa=True)
-    saldo_geral = sum([conta.saldo_atual for conta in contas_ativas])
+    # === FORÇAR O SALDO EXATO DA API ===
+    token_temp = obter_token_pluggy()
+    # Pega o saldo fresco e em tempo real direto do banco
+    saldo_geral = buscar_saldo_real_api(ACCOUNT_ID_CORRENTE, token_temp) if token_temp else 0
 
     # Previsão = Saldo Real - O que deve da fatura de agora - O que já gastou na do mês que vem
     saldo_projetado = float(saldo_geral) - total_fatura_atual_pendente - total_fatura_andamento
@@ -399,15 +368,13 @@ def detalhes_dia_api(request):
     })
 
 def forcar_sincronizacao(request):
+    res_cartao = sincronizar_cartao_credito("Meu Cartão")
+    print(res_cartao)
+    
     conta = Conta.objects.filter(ativa=True).first()
     if conta:
         res_conta = sincronizar_conta_corrente(conta.id)
-        print("\n--- STATUS PLUGGY ---")
         print(res_conta)
-    
-    res_cartao = sincronizar_cartao_credito("Meu Cartão")
-    print(res_cartao)
-    print("---------------------\n")
         
     return redirect('financeiro:home')
 
