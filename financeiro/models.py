@@ -93,6 +93,8 @@ class Transacao(models.Model):
     
     # Status de Efetivação
     efetivada = models.BooleanField(default=False, help_text='Marca se o dinheiro já saiu/entrou na conta de fato')
+    
+    revisada = models.BooleanField(default=False)
 
     # Identificador único da API do Pluggy para evitar duplicados
     id_api = models.CharField(max_length=255, unique=True, null=True, blank=True)
@@ -131,6 +133,7 @@ class FaturaCartao(models.Model):
     data_fechamento = models.DateField()
     data_vencimento = models.DateField()
     paga = models.BooleanField(default=False)
+    id_fatura_banco = models.CharField(max_length=255, null=True, blank=True)
 
     def __str__(self):
         return f'Fatura {self.nome_cartao} - {self.mes}/{self.ano}'
@@ -141,6 +144,8 @@ class TransacaoCartao(models.Model):
     categoria = models.ForeignKey(CategoriaFinanceira, on_delete=models.SET_NULL, null=True, blank=True)
     valor = models.DecimalField(max_digits=10, decimal_places=2)
     data_compra = models.DateField(default=timezone.now)
+    
+    revisada = models.BooleanField(default=False)
     
     # Identificador único da API do Pluggy para evitar duplicados
     id_api = models.CharField(max_length=255, unique=True, null=True, blank=True)

@@ -76,8 +76,57 @@ def dashboard_financeiro(request):
     # ==========================================
     # 3. SALDOS FINAIS DE ACORDO COM A SUA REGRA
     # ==========================================
+    
     # Despesas do Mês = O que saiu da corrente + O que JÁ FOI PAGO de fatura este mês.
     total_despesas = float(despesas_normais) + total_fatura_atual_paga
+    
+    
+    
+    # ==========================================
+    # 🕵️‍♂️ DEBUG: O QUE COMPÕE AS DESPESAS DO MÊS?
+    # ==========================================
+    print('\n' + '='*60)
+    print(f'🕵️‍♂️ DEBUG DE DESPESAS - MÊS {mes_selecionado:02d}/{ano_selecionado}')
+    print('='*60)
+
+    # 1. Detalhar as despesas da Conta Corrente
+    despesas_corrente_lista = Transacao.objects.filter(
+        tipo='DESPESA', 
+        data_vencimento__month=mes_selecionado, 
+        data_vencimento__year=ano_selecionado
+    ).order_by('data_vencimento')
+    
+    print(f'\n--- 1. CONTA CORRENTE (Total somado: R$ {float(despesas_normais):.2f}) ---')
+    if not despesas_corrente_lista:
+        print(' Nenhuma despesa na conta corrente este mês.')
+    else:
+        for d in despesas_corrente_lista:
+            data_fmt = d.data_vencimento.strftime('%d/%m')
+            print(f' [{data_fmt}] R$ {float(d.valor):>8.2f} | {d.descricao[:35]}')
+
+    # 2. Detalhar as Faturas Pagas do Mês
+    print(f'\n--- 2. FATURAS DO CARTÃO (Total somado: R$ {float(total_fatura_atual_paga):.2f}) ---')
+    if not faturas_atual:
+        print(' Nenhuma fatura encontrada para este mês.')
+    else:
+        for f in faturas_atual:
+            gasto_fatura = float(f.compras.aggregate(t=Sum('valor'))['t'] or 0)
+            status_fatura = '✅ PAGA (Entrou na soma)' if f.paga else '⏳ PENDENTE (Ignorada das despesas)'
+            print(f' Fatura {f.nome_cartao}: R$ {gasto_fatura:.2f} -> {status_fatura}')
+            
+            # Lista as compras individuais da fatura, caso ela esteja paga e a somar no total
+            if f.paga:
+                for compra in f.compras.all().order_by('data_compra'):
+                    data_compra_fmt = compra.data_compra.strftime('%d/%m')
+                    print(f'    -> [{data_compra_fmt}] R$ {float(compra.valor):>8.2f} | {compra.descricao[:30]}')
+
+    print('\n' + '-'*60)
+    print(f'💰 TOTAL FINAL EXIBIDO NO DASHBOARD: R$ {float(total_despesas):.2f}')
+    print('='*60 + '\n')
+    # ==========================================
+    
+    
+    
 
     contas_ativas = Conta.objects.filter(ativa=True)
     saldo_geral = sum([conta.saldo_atual for conta in contas_ativas])
@@ -135,6 +184,9 @@ def dashboard_financeiro(request):
     maior_gasto_diario = max(gastos_diarios.values()) if gastos_diarios else 0
 
     transacoes_recentes = Transacao.objects.all().select_related('categoria', 'conta').order_by('-data_vencimento', '-id')[:10]
+    
+    transacoes_pendentes = Transacao.objects.filter(revisada=False).order_by('-data_vencimento')[:20]
+    todas_categorias = CategoriaFinanceira.objects.all().order_by('nome')
 
     context = {
         'mes_selecionado': mes_selecionado, 'ano_selecionado': ano_selecionado, 'nome_mes_selecionado': nome_mes_selecionado,
@@ -151,6 +203,9 @@ def dashboard_financeiro(request):
         'faturas_pendentes_alerta': faturas_pendentes_alerta,
         
         'transacoes': transacoes_recentes,
+        'transacoes_pendentes': transacoes_pendentes,
+        'todas_categorias': todas_categorias,
+        
         'labels_grafico': json.dumps(labels_grafico), 'valores_grafico': json.dumps(valores_grafico), 'cores_grafico': json.dumps(cores_grafico),
         
         'meses_labels': json.dumps(meses_labels), 'receitas_data': json.dumps(receitas_data), 'despesas_data': json.dumps(despesas_data),
@@ -361,4 +416,25 @@ def marcar_fatura_paga(request, fatura_id):
     fatura = get_object_or_404(FaturaCartao, id=fatura_id)
     fatura.paga = True
     fatura.save()
+    return redirect('financeiro:home')
+
+def revisar_transacao(request, transacao_id):
+    if request.method == 'POST':
+        transacao = get_object_or_404(Transacao, id=transacao_id)
+        
+        # Pega as escolhas que você fez no select do HTML
+        novo_tipo = request.POST.get('tipo')
+        nova_categoria_id = request.POST.get('categoria')
+        
+        if novo_tipo:
+            transacao.tipo = novo_tipo
+            
+        if nova_categoria_id:
+            categoria = get_object_or_404(CategoriaFinanceira, id=nova_categoria_id)
+            transacao.categoria = categoria
+            
+        # Marca como aprovada!
+        transacao.revisada = True
+        transacao.save()
+        
     return redirect('financeiro:home')

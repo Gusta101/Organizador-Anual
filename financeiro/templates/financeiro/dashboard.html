@@ -23,6 +23,7 @@
         </a>
     </div>
 
+    <!-- Alerta de Faturas Pendentes -->
     {% for alerta in faturas_pendentes_alerta %}
     <div class='alert alert-danger d-flex justify-content-between align-items-center mb-4 shadow-sm border-0' style='border-left: 5px solid #dc3545;'>
         <div>
@@ -39,6 +40,7 @@
     </div>
     {% endfor %}
 
+    <!-- Cards de Resumo -->
     <div class='row mb-4 g-3'>
         <div class='col-md-3'>
             <div class='summary-card p-3 rounded text-center'>
@@ -70,6 +72,79 @@
         </div>
     </div>
 
+    <!-- Transações Pendentes de Revisão -->
+    {% if transacoes_pendentes %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm border-0" style="border-left: 5px solid #f1c40f;">
+                <div class="card-header bg-white border-0 pt-4 pb-0">
+                    <h5 style="font-family: 'Caveat', cursive; color: #f39c12;">
+                        <i class="fa-solid fa-list-check me-2"></i>Conciliação Bancária (Pendentes)
+                    </h5>
+                    <p class="text-muted small">A nossa inteligência artificial sugeriu as classificações abaixo. Confirme ou altere para treinar o seu painel.</p>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Data</th>
+                                    <th>Descrição</th>
+                                    <th>Valor</th>
+                                    <th>Classificação (Tipo)</th>
+                                    <th>Categoria</th>
+                                    <th>Ação</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for t in transacoes_pendentes %}
+                                <tr>
+                                    <td>{{ t.data_vencimento|date:"d/m/Y" }}</td>
+                                    <td>
+                                        <strong>{{ t.descricao }}</strong><br>
+                                        <span class="badge bg-secondary" style="font-size: 0.7em;">Conta Corrente</span>
+                                    </td>
+                                    <td class="{% if t.tipo == 'DESPESA' or t.valor < 0 %}text-danger{% else %}text-success{% endif %} fw-bold">
+                                        R$ {{ t.valor|floatformat:2 }}
+                                    </td>
+                                    
+                                    <form id="form-revisao-{{ t.id }}" method="POST" action="{% url 'financeiro:revisar_transacao' t.id %}">
+                                        {% csrf_token %}
+                                    </form>
+
+                                    <td style="min-width: 140px;">
+                                        <select form="form-revisao-{{ t.id }}" name="tipo" class="form-select form-select-sm">
+                                            <option value="DESPESA" {% if t.tipo == 'DESPESA' %}selected{% endif %}>Despesa</option>
+                                            <option value="RECEITA" {% if t.tipo == 'RECEITA' %}selected{% endif %}>Receita</option>
+                                            <option value="TRANSFERENCIA" {% if t.tipo == 'TRANSFERENCIA' %}selected{% endif %}>Transferência Neutra</option>
+                                        </select>
+                                    </td>
+                                    <td style="min-width: 150px;">
+                                        <select form="form-revisao-{{ t.id }}" name="categoria" class="form-select form-select-sm">
+                                            {% for cat in todas_categorias %}
+                                                <option value="{{ cat.id }}" {% if t.categoria.id == cat.id %}selected{% endif %}>
+                                                    {{ cat.nome }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </td>
+                                    <td>
+                                        <button form="form-revisao-{{ t.id }}" type="submit" class="btn btn-sm btn-success rounded-circle shadow-sm" title="Confirmar">
+                                            <i class="fa-solid fa-check"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Fatura em Andamento -->
     <div class='row mb-5'>
         <div class='col-12'>
             <div class='summary-card p-4 rounded d-flex justify-content-between align-items-center shadow-sm' style='border-left: 5px solid var(--color3); background-color: var(--bg-body);'>
@@ -84,6 +159,7 @@
         </div>
     </div>
 
+    <!-- Análise Mensal -->
     <h4 class="mb-3 mt-5">Análise Mensal</h4>
 
     <div class='row mb-4 g-4'>
@@ -116,7 +192,7 @@
         </div>
     </div>
 
-    <!-- Dashboard Diário -->
+    <!-- Análise Diária -->
     <h4 class='mb-3 mt-5'>Análise Diária</h4>
 
     <div class='row mb-4 g-4'>
