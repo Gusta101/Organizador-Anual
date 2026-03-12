@@ -104,22 +104,25 @@ def sincronizar_conta_corrente(conta_django_id):
         
         desc_lower = descricao.lower()
         is_saida = amount < 0
-        valor = abs(amount)
         
         tipo_final = 'DESPESA' if is_saida else 'RECEITA'
         pagamento_fatura = False
         
         palavras_fatura = ['fatura', 'pagamento cartão', 'fatura nubank', 'pagamento crédito', 'fatura itau', 'pagamento de fatura', 'fatura santander']
         if is_saida and any(p in desc_lower for p in palavras_fatura):
-            tipo_final = 'TRANSFERENCIA'
+            tipo_final = 'PAGAMENTO FATURA'
             pagamento_fatura = True
             
         elif any(p in desc_lower for p in ['caixinha', 'resgate', 'resgate rdb', 'investimento', 'aplicação', 'aplicação rdb']):
             tipo_final = 'TRANSFERENCIA'
             
         elif metodo_pagamento == 'PIX' and any(p in desc_lower for p in ['gustavo', 'b santos', 'balbino', 'santos']):
-            tipo_final = 'TRANSFERENCIA'
-            is_saida = False
+            if amount < 0:
+                tipo_final = 'DESPESA'
+                is_saida = True
+            else:
+                tipo_final = 'RECEITA'
+                is_saida = False
             
         elif metodo_pagamento == 'BOLETO':
             tipo_final = 'DESPESA'
@@ -142,13 +145,14 @@ def sincronizar_conta_corrente(conta_django_id):
             defaults={
                 'descricao': descricao, 
                 'tipo': tipo_final, 
-                'valor': valor, 
+                'valor': abs(amount), 
                 'data_vencimento': data_alvo, 
                 'data_pagamento': data_alvo if efetivada else None, 
                 'conta': conta_destino, 
                 'categoria': categoria, 
                 'efetivada': efetivada,
-                'revisada': True
+                'revisada': True,
+                'metodo_pagamento': metodo_pagamento,
             }
         )
         
@@ -169,7 +173,7 @@ def sincronizar_conta_corrente(conta_django_id):
                 total_fatura = float(fatura_alvo.compras.aggregate(t=Sum('valor'))['t'] or 0)
                 
                 # Soma o pagamento atual ao que já estava no cofre
-                novo_valor_pago = float(fatura_alvo.valor_pago) + valor
+                novo_valor_pago = float(fatura_alvo.valor_pago) + abs(amount)
                 
                 # Se o pagamento quitar ou ultrapassar a fatura, trava no valor exato do teto
                 if novo_valor_pago >= (total_fatura - 0.10):

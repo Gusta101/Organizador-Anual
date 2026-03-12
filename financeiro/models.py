@@ -84,6 +84,7 @@ class Transacao(models.Model):
         ('RECEITA', 'Receita'),
         ('DESPESA', 'Despesa'),
         ('TRANSFERENCIA', 'Transferência'),
+        ('PAGAMENTO FATURA', 'Pagamento de Fatura'),
     ]
 
     descricao = models.CharField(max_length=255)
@@ -98,6 +99,8 @@ class Transacao(models.Model):
     efetivada = models.BooleanField(default=False, help_text='Marca se o dinheiro já saiu/entrou na conta de fato')
     revisada = models.BooleanField(default=True)
     id_api = models.CharField(max_length=255, unique=True, null=True, blank=True)
+    
+    metodo_pagamento = models.CharField(max_length=50, default='OTHER', blank=True, null=True)
 
     objetivo_vinculado = models.ForeignKey(
         ObjetivoMacro, 
