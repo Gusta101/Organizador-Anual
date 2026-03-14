@@ -1,0 +1,46 @@
+{% extends 'core/base.html' %}
+
+{% load static %}
+
+{% block title %}Dashboard Financeiro{% endblock %}
+
+{% block content %}
+
+
+<style>
+  /* O Wrapper limita a largura máxima para o dashboard não ficar gigante em monitores 4K */
+  .dashboard-wrapper {
+    max-width: 1200px; /* Ou a largura da sua área de conteúdo */
+    margin: 20px auto; /* Centraliza e dá respiro da Navbar/Footer */
+    padding: 0 15px;
+  }
+
+  .video-container {
+    position: relative;
+    width: 100%;
+    padding-bottom: 56.25%; /* Proporção 16:9 */
+    height: 0;
+    overflow: hidden;
+    border-radius: 8px; /* Opcional: deixa as bordas arredondadas */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1); /* Opcional: dá profundidade */
+  }
+
+  .video-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+</style>
+
+<div class="dashboard-wrapper">
+    <div class="video-container">
+        <iframe title="PBI - Organizador" width="1024" height="1060"
+        src="https://app.powerbi.com/view?r=eyJrIjoiODU5YWJhYzAtODZjYS00MzIyLTkyMzctM2I3YjBiNjc0NDliIiwidCI6IjI2NGM4NTFmLWE0ZTctNDNjZi04NmJjLWQ3YjEwZGNhODU3OCJ9&pageName=c1a6dc34a03db7805bcc"
+        frameborder="0" allowFullScreen="true"></iframe>
+    </div>
+</div>
+
+{% endblock %}
