@@ -122,7 +122,7 @@ class FaturaCartao(models.Model):
     Módulo adicional para Fase 1 (Cartão de Crédito)
     Isola os gastos do cartão do saldo da conta até o dia do pagamento.
     '''
-    nome_cartao = models.CharField(max_length=100)
+    nome_cartao = models.CharField(max_length=100, default='Cartão de Crédito')
     mes = models.IntegerField()
     ano = models.IntegerField()
     data_fechamento = models.DateField()

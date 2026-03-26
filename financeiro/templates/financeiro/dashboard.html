@@ -6,6 +6,21 @@
 {% block content %}
 <div class='container-fluid p-0'>
 
+    {% if not contas_ativas %}
+    <div class="d-flex flex-wrap gap-2 mb-4 pb-2 border-bottom">
+        <h2>Não foi encontrada uma conta salva no banco de dados, crie sua conta bancária agora</h2>
+        <button type='button' class='btn btn-outline-secondary' style='font-family: "Patrick Hand", cursive;'
+            data-bs-toggle='modal' data-bs-target='#modalNovaConta'>
+            + Nova Conta Bancária
+        </button>
+        <button type='button' class='btn btn-outline-secondary' style='font-family: "Patrick Hand", cursive;'
+            data-bs-toggle='modal' data-bs-target='#modalNovaCategoria'>
+            + Nova Categoria
+        </button>
+    </div>
+    {% endif %}
+
+
     <!-- Nav financeiro -->
     <div class='d-flex flex-wrap gap-2 mb-4 pb-2 border-bottom'>
         <a href='{% url "financeiro:painel_orcamentos" %}' class='btn btn-animated bg-color3 text-white'>
@@ -134,7 +149,7 @@
     </div>
 
     <!-- Dashboard Mensal -->
-     <h4 class="mb-3 mt-5">Análise Mensal</h4>
+    <h4 class="mb-3 mt-5">Análise Mensal</h4>
 
     <div class='row mb-4 g-4'>
         <div class='col-md-6 col-lg-5'>
