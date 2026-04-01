@@ -1,0 +1,54 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Importar Extrato{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow-sm col-md-6 mx-auto">
+        <div class="card-body">
+            <h3 class="card-title text-center mb-4">Importar OFX</h3>
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <div class="mb-3">
+                    <label class="form-label">Arquivo Extrato (.ofx)</label>
+                    <input class="form-control" type="file" name="arquivo_extrato" accept=".ofx" required>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Destino do Extrato</label>
+                    <select class="form-select mb-2" name="tipo_destino" id="tipoDestino" required>
+                        <option value="conta">Conta Corrente</option>
+                        <option value="cartao">Cartão de Crédito</option>
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label">Selecione a Conta/Cartão</label>
+                    <select class="form-select" name="destino_id" required>
+                        <optgroup label="Contas">
+                            {% for conta in contas %}
+                                <option value="{{ conta.id }}">{{ conta.nome }}</option>
+                            {% endfor %}
+                        </optgroup>
+                        <optgroup label="Cartões">
+                            {% for cartao in cartoes %}
+                                <option value="{{ cartao.id }}">{{ cartao.nome }}</option>
+                            {% endfor %}
+                        </optgroup>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-animated bg-color4 w-100">Importar Transações</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

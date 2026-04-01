@@ -1,0 +1,287 @@
+{% extends 'core/base.html' %}
+
+{% load tz %}
+
+{% block title %}Financeiro - {{ data_ref|date:"F Y" }}{% endblock %}
+
+{% block content %}
+<style>
+    .metric-card {
+        border-radius: 12px;
+        border: none;
+        background: var(--bg-body);
+        color: var(--text-main);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+
+    .chart-container {
+        background: var(--bg-body);
+        border-radius: 12px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        height: 350px;
+    }
+
+    /* Altura Fixa */
+    .icon-box {
+        width: 42px;
+        height: 42px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .bg-light-success {
+        background: #d1e7dd;
+        color: #0f5132;
+    }
+
+    .bg-light-danger {
+        background: #f8d7da;
+        color: #842029;
+    }
+</style>
+
+<div class="container-fluid pb-5">
+
+    <!-- Botões de Ação -->
+    <div class="dropdown">
+        <button class="btn bg-color4 text-white fab-btn shadow dropdown-toggle" type="button" data-bs-toggle="dropdown"
+            aria-expanded="false">
+            <i class="fa-solid fa-plus"></i>
+        </button>
+        <ul class="dropdown-menu dropdown-menu-end shadow-sm mb-2 custom-modal-content">
+            <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#modalPrevista"><i
+                        class="fa-solid fa-calendar-plus text-primary me-2"></i> Gasto/Receita Prevista</a></li>
+            <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#modalRecorrente"><i
+                        class="fa-solid fa-rotate text-success me-2"></i> Mensal/Recorrente</a></li>
+        </ul>
+    </div>
+
+    <!-- Navegação por Meses -->
+    <div class="d-flex justify-content-between align-items-center mb-4 bg-white p-3 rounded shadow-sm">
+        <a href="?mes={{ mes_anterior.month }}&ano={{ mes_anterior.year }}" class="btn btn-outline-secondary">
+            <i class="fa-solid fa-chevron-left"></i>
+        </a>
+        <h4 class="fw-bold m-0 text-uppercase">{{ data_ref|date:"F Y" }}</h4>
+        <a href="?mes={{ mes_proximo.month }}&ano={{ mes_proximo.year }}" class="btn btn-outline-secondary">
+            <i class="fa-solid fa-chevron-right"></i>
+        </a>
+    </div>
+
+    <!-- Cards de Métricas -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card metric-card p-3 border-start border-success border-4">
+                <p class="text-muted small fw-bold mb-1">RECEITAS NO MÊS</p>
+                <h3 class="fw-bold text-success">R$ {{ receitas_mes|floatformat:2 }}</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card metric-card p-3 border-start border-danger border-4">
+                <p class="text-muted small fw-bold mb-1">DESPESAS NO MÊS</p>
+                <h3 class="fw-bold text-danger">R$ {{ despesas_mes|floatformat:2 }}</h3>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card metric-card p-3 bg-color3 text-white">
+                <p class="small fw-bold mb-1 opacity-75">ESTADO DA CONTA EM {{ data_ref|date:"M/y"|upper }}</p>
+                <h3 class="fw-bold">R$ {{ saldo_no_mes|floatformat:2 }}</h3>
+            </div>
+        </div>
+    </div>
+
+    <!-- Gráficos -->
+    <div class="row g-4">
+        <!-- Gráfico de Fluxo de Caixa -->
+        <div class="col-lg-8">
+            <div class="chart-container mb-4">
+                <h5 class="fw-bold mb-3">Fluxo de Caixa</h5>
+                <canvas id="fluxoChart"></canvas>
+            </div>
+
+            <div class="card metric-card p-4">
+                <div class="d-flex justify-content-between mb-4">
+                    <h5 class="fw-bold m-0">Movimentações do Mês</h5>
+                    {% if not is_futuro %}
+                    <a href="{% url 'financeiro:importar_extrato' %}"
+                        class="btn btn-sm btn-animated bg-color4 text-white">Importar OFX</a>
+                    {% endif %}
+                </div>
+                <div class="table-responsive">
+                    <table class="table align-middle">
+                        <thead>
+                            <tr class="small text-muted">
+                                <th>DATA</th>
+                                <th>DESCRIÇÃO</th>
+                                <th class="text-end">VALOR</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for t in transacoes %}
+                            <tr>
+                                <td class="small">
+                                    {% if is_futuro %}
+                                    {{ t.data_prevista|date:"d/m" }}
+                                    {% else %}
+                                    {{ t.data_efetivacao|date:"d/m" }}
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    <span class="fw-bold d-block">
+                                        {% if is_futuro %}
+                                        {{ t.descricao }}
+                                        {% else %}
+                                        {{ t.descricao_customizada|default:t.descricao_banco }}
+                                        {% endif %}
+                                    </span>
+                                    <small class="text-muted">{{ t.categoria.nome|default:"Sem Categoria" }}</small>
+                                </td>
+
+                                <td
+                                    class="text-end fw-bold {% if t.tipo == 'RECEITA' %}text-success{% else %}text-danger{% endif %}">
+                                    R$
+                                    {% if is_futuro %}
+                                    {{ t.valor_previsto|floatformat:2 }}
+                                    {% else %}
+                                    {{ t.valor|floatformat:2 }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted">Sem registros para este mês.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metas de Gastos -->
+        <div class="col-lg-4">
+            <div class="card metric-card p-4 mb-4">
+                <h5 class="fw-bold mb-4">Metas de Gastos</h5>
+                {% for o in lista_orcamentos %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span>{{ o.nome }}</span>
+                        <span class="text-muted">R$ {{ o.gasto|floatformat:0 }} / {{ o.teto|floatformat:0 }}</span>
+                    </div>
+                    <div class="progress" style="height: 6px;">
+                        <div class="progress-bar {% if o.estourou %}bg-danger{% else %}bg-color5{% endif %}"
+                            style="width: {{ o.percentual|floatformat:0 }}%"></div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-center text-muted small">Defina tetos nas categorias para ver aqui.</p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- Modal de Transação Prevista -->
+<div class="modal fade" id="modalPrevista" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content custom-modal-content">
+            <form action="{% url 'financeiro:criar_prevista' %}" method="POST">
+                {% csrf_token %}
+                <div class="modal-header border-bottom-0">
+                    <h5 class="modal-title fw-bold">Novo Lançamento Previsto</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-4">Para gastos ou receitas pontuais no futuro (ex: IPVA, Bônus, Compra
+                        Parcelada).</p>
+                    {{ form_prevista.as_p }}
+                </div>
+                <div class="modal-footer border-top-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn bg-color4 text-white">Salvar Previsão</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Transação Recorrente -->
+<div class="modal fade" id="modalRecorrente" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content custom-modal-content">
+            <form action="{% url 'financeiro:criar_recorrente' %}" method="POST">
+                {% csrf_token %}
+                <div class="modal-header border-bottom-0">
+                    <h5 class="modal-title fw-bold">Novo Lançamento Mensal</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small mb-4">Para contas fixas que se repetem todo mês (ex: Aluguel, Salário,
+                        Internet).</p>
+                    {{ form_recorrente.as_p }}
+                </div>
+                <div class="modal-footer border-top-0">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn bg-color4 text-white">Salvar Recorrência</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<!-- Gráfico de Fluxo de Caixa -->
+<script>
+    const ctx = document.getElementById('fluxoChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: {{ labels_grafico|safe }},
+            datasets: [
+                {
+                    label: 'Receitas',
+                    data: {{ receitas_grafico|safe }},
+                    borderColor: '#198754', // Verde (success)
+                    backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                },
+                {
+                    label: 'Despesas',
+                    data: {{ despesas_grafico|safe }},
+                    borderColor: '#dc3545', // Vermelho (danger)
+                    backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: { boxWidth: 12, usePointStyle: true }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return 'R$ ' + value.toLocaleString('pt-BR');
+                        }
+                    }
+                }
+            }
+        }
+    });
+</script>
+
+{% endblock %}
